@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>{{ .title }}</title>
+	<link rel="stylesheet" type="text/css" href="/css/style.css">
+	<script type="text/javascript" src="/js/site.js"></script>
+</head>
+<body>
+	<div>
+		<form id="upload">
+			<h1 class="title">{{ .title }}</h1>
+			<p class="info">{{ .message }}</p>
+			<div class="error hidden">
+				<h5>Upload failed.</p>
+				<p class="message"></p>
+			</div>
+			<div class="success hidden">
+				<h5>Upload Succeeded!</h5>
+				<p>Your file's url is:</p>
+				<p><a class="file-url" href="#"></a></p>
+			</div>
+			<div class="progress hidden">
+				<div class="progress-bar">
+					<div class="bar"></div>
+				</div>
+			</div>
+			<div class="select-file">
+				<div class="filepicker">
+					<label>Select File</label>
+					<input id="file_upload" class="select-file" name="file" type="file" name="Choose a File to Upload">
+				</div>
+				<input id="submit" type="submit" value="upload" />
+			</div>
+		</form>
+	</div>
+</body>
+</html>

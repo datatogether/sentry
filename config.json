@@ -1,0 +1,18 @@
+{
+	"AWS_REGION" : "us-east-1",
+
+	"HTTP_AUTH_USERNAME" : "",
+	"HTTP_AUTH_PASSWORD" : "",
+
+	"APP_DB_URL" : "postgresql://brendan:iwtscf1y@localhost:5432/crawler?sslmode=disable",
+
+	"STALE_DURATION"  : 21600000000000,
+
+	"template_data" : {
+		"title" : "Dataset Uploader",
+		"message" : "Max File Size: 5GB",
+		"expired_title" : "Upload Period Expired",
+		"expired_message" : "Sorry, but this server is no longer accepting uploads",
+		"access_denied_message" : "Invalid http auth username / password combo"
+	}
+}
