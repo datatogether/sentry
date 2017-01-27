@@ -4,7 +4,7 @@ CREATE TABLE domains (
 	host 						text PRIMARY KEY NOT NULL,
 	created 				integer NOT NULL,
 	updated 				integer NOT NULL,
-	stale_duration 	integer NOT NULL DEFAULT 43200000000000, -- defaults to 12 hours
+	stale_duration 	integer NOT NULL DEFAULT 43200000, -- defaults to 12 hours, column needs to be multiplied by 1000000 to become a poper duration
 	crawl 					boolean default true,
 	last_alert_sent bigint default 0
 );
@@ -13,6 +13,7 @@ CREATE TABLE urls (
 	url 						text PRIMARY KEY NOT NULL,
 	created 				integer NOT NULL,
 	updated 				integer NOT NULL,
+	last_get 				integer NOT NULL default 0,
 	host 						text,
 	status 					integer default 0,
 	content_type 		text default '',

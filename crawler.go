@@ -21,6 +21,8 @@ var (
 	mu sync.Mutex
 	// cached list of domains currently crawling
 	crawlingDomains = map[string]bool{}
+	// dupe map
+	enqued = map[string]bool{}
 )
 
 func startCrawling() {
@@ -40,11 +42,14 @@ func startCrawling() {
 				Url:  addr,
 				Host: addr.Host,
 			}
-
 			if err := u.Read(appDB); err != nil {
 				fmt.Printf("[ERR] url read error: %s - (%s) - %s\n", ctx.Cmd.URL(), NormalizeURL(ctx.Cmd.URL()), err)
 				return
 			}
+
+			mu.Lock()
+			enqued[u.Url.String()] = false
+			mu.Unlock()
 
 			// if err := u.ReadDomain(appDB); err != nil {
 			// 	fmt.Println("[ERR] reading domain for url: %s - %s", ctx.Cmd.URL().Host, err)
@@ -58,10 +63,12 @@ func startCrawling() {
 				return
 			}
 
+			fmt.Println(u)
 			u.Title = doc.Find("title").Text()
 			u.Status = res.StatusCode
 			u.ContentLength = res.ContentLength
 			u.ContentType = res.Header.Get("Content-Type")
+			u.LastGet = time.Now()
 			links, err := u.DocLinks(doc)
 			if err != nil {
 				fmt.Printf("[ERR] finding doc links: %s - %s\n", u.Url.String(), err)
@@ -87,7 +94,17 @@ func startCrawling() {
 			addr := NormalizeURL(ctx.Cmd.URL())
 
 			u := &Url{
-				Url: addr,
+				Url:  addr,
+				Host: addr.Host,
+			}
+
+			mu.Lock()
+			enqued[u.Url.String()] = false
+			mu.Unlock()
+
+			if err := u.Read(appDB); err != nil {
+				fmt.Println("[ERR] %s %s reading - ", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
+				return
 			}
 
 			// if we're currently crawling this url's domain, attept to add it to the
@@ -110,9 +127,6 @@ func startCrawling() {
 			}
 		}))
 
-	//
-	// mux.Response().Method("HEAD").Handler(h)
-
 	// Create the Fetcher, handle the logging first, then dispatch to the Muxer
 	h := logHandler(mux)
 	// if *stopAtURL != "" || *cancelAtURL != "" {
@@ -126,7 +140,7 @@ func startCrawling() {
 	fmt.Println("startin' crawlin'")
 	f = fetchbot.New(h)
 	f.DisablePoliteness = true
-	f.CrawlDelay = 5 * time.Second
+	f.CrawlDelay = 4 * time.Second
 
 	// First mem stat print must be right after creating the fetchbot
 	// if *memStats > 0 {
@@ -153,7 +167,6 @@ func startCrawling() {
 	// 		after = *cancelAfter
 	// 		stopFunc = q.Cancel
 	// 	}
-
 	// 	go func() {
 	// 		c := time.After(after)
 	// 		<-c
@@ -163,6 +176,7 @@ func startCrawling() {
 
 	// do an initial domain seed
 	seedDomains(appDB, q)
+
 	// every half stale-duration, check to see if top levels need to be re-crawled for staleness
 	go func() {
 		c := time.After(time.Duration(cfg.StaleDuration / 2))
@@ -186,21 +200,19 @@ func seedDomains(db sqlQueryExecable, q *fetchbot.Queue) error {
 		if err := d.UnmarshalSQL(rows); err != nil {
 			return err
 		}
-		crawlingDomains[d.Host] = true
 		u, err := d.Url(db)
 		if err != nil {
 			fmt.Println(err)
 			return err
 		}
 
-		// only seed domains if we haven't looked at them since their stale date
-		fmt.Println("should enqueue", u.Url.String(), "?")
-		if u.ShouldEnqueue() {
-			fmt.Println("yes")
-			_, err := q.SendStringGet(u.Url.String())
-			if err != nil {
-				return err
-			}
+		crawlingDomains[d.Host] = true
+		enqued[u.Url.String()] = true
+
+		fmt.Println("crawling domains:", crawlingDomains)
+		_, err = q.SendStringGet(u.Url.String())
+		if err != nil {
+			return err
 		}
 	}
 	mu.Unlock()
@@ -208,8 +220,13 @@ func seedDomains(db sqlQueryExecable, q *fetchbot.Queue) error {
 }
 
 func enqueueDomainGet(u *Url, ctx *fetchbot.Context) error {
-	if u.ShouldEnqueue() {
+	if u.ShouldEnqueueGet() {
 		_, err := ctx.Q.SendStringGet(u.Url.String())
+		if err == nil {
+			mu.Lock()
+			enqued[u.Url.String()] = true
+			mu.Unlock()
+		}
 		return err
 	}
 	return nil
@@ -240,13 +257,16 @@ func enqueueDstLinks(db sqlQueryExecable, links []*Link, ctx *fetchbot.Context) 
 			}
 		}
 
-		if l.Dst.ShouldEnqueue() {
+		if l.Dst.ShouldEnqueueHead() {
+			mu.Lock()
 			if _, err := ctx.Q.SendStringHead(l.Dst.Url.String()); err != nil {
 				fmt.Printf("error: enqueue head %s - %s\n", l.Dst.Url.String(), err)
 			} else {
 				// at this point the destination has been added for a HEAD request.
 				// dup[u.String()] = true
 			}
+			enqued[l.Dst.Url.String()] = true
+			mu.Unlock()
 		}
 	}
 	return nil

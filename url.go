@@ -13,6 +13,7 @@ type Url struct {
 	Url           *url.URL
 	Created       time.Time
 	Updated       time.Time
+	LastGet       time.Time
 	Host          string
 	Status        int
 	ContentType   string
@@ -21,8 +22,13 @@ type Url struct {
 }
 
 // ShouldFetch returns weather the url should be added to the queue for updating
-func (u *Url) ShouldEnqueue() bool {
-	return u.Created == u.Updated || time.Since(u.Updated) > cfg.StaleDuration
+// should return true if the url is new, or if we haven't checked this url in a while
+func (u *Url) ShouldEnqueueGet() bool {
+	return (u.LastGet.IsZero() || time.Since(u.LastGet) > cfg.StaleDuration) && !enqued[u.Url.String()]
+}
+
+func (u *Url) ShouldEnqueueHead() bool {
+	return (u.Created == u.Updated || u.LastGet.IsZero() || time.Since(u.Updated) > cfg.StaleDuration) && !enqued[u.Url.String()]
 }
 
 func (u *Url) Read(db sqlQueryable) error {
@@ -56,14 +62,14 @@ func (u *Url) Insert(db sqlQueryExecable) error {
 	u.Updated = u.Created
 	u.Url = NormalizeURL(u.Url)
 	u.Host = u.Url.Host
-	_, err := db.Exec("insert into urls values ($1, $2, $3, $4, $5, $6, $7, $8)", u.SQLArgs()...)
+	_, err := db.Exec(fmt.Sprintf("insert into urls (%s) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)", urlCols()), u.SQLArgs()...)
 	return err
 }
 
 func (u *Url) Update(db sqlQueryExecable) error {
 	u.Updated = time.Now()
 	u.Url = NormalizeURL(u.Url)
-	_, err := db.Exec("update urls set created=$2, updated=$3, host=$4, status=$5, content_type=$6, content_length=$7, title=$8 where url = $1", u.SQLArgs()...)
+	_, err := db.Exec("update urls set created=$2, updated=$3, last_get=$4, host=$5, status=$6, content_type=$7, content_length=$8, title=$9 where url = $1", u.SQLArgs()...)
 	return err
 }
 
@@ -102,17 +108,17 @@ func (u *Url) DocLinks(doc *goquery.Document) ([]*Link, error) {
 }
 
 func urlCols() string {
-	return "url, created, updated, host, status, content_type, content_length, title"
+	return "url, created, updated, last_get, host, status, content_type, content_length, title"
 }
 
 func (u *Url) UnmarshalSQL(row sqlScannable) error {
 	var (
-		rawurl, host, mime, title string
-		created, updated, length  int64
-		status                    int
+		rawurl, host, mime, title         string
+		created, updated, lastGet, length int64
+		status                            int
 	)
 
-	if err := row.Scan(&rawurl, &created, &updated, &host, &status, &mime, &length, &title); err != nil {
+	if err := row.Scan(&rawurl, &created, &updated, &lastGet, &host, &status, &mime, &length, &title); err != nil {
 		if err == sql.ErrNoRows {
 			return ErrNotFound
 		}
@@ -127,6 +133,7 @@ func (u *Url) UnmarshalSQL(row sqlScannable) error {
 	*u = Url{
 		Created:       time.Unix(created, 0),
 		Updated:       time.Unix(updated, 0),
+		LastGet:       time.Unix(lastGet, 0),
 		Url:           parsedUrl,
 		Host:          host,
 		Status:        status,
@@ -144,6 +151,7 @@ func (u *Url) SQLArgs() []interface{} {
 		u.Url.String(),
 		u.Created.Unix(),
 		u.Updated.Unix(),
+		u.LastGet.Unix(),
 		u.Host,
 		u.Status,
 		u.ContentType,
