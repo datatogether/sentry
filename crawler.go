@@ -19,7 +19,7 @@ var (
 
 	// Protect access to crawling domains map
 	mu sync.Mutex
-	// cached list of domains currently crawling
+	// map of domains currently crawling
 	crawlingDomains = map[string]bool{}
 	// dupe map
 	enqued = map[string]bool{}
@@ -31,7 +31,10 @@ func startCrawling() {
 
 	// Handle all errors the same
 	mux.HandleErrors(fetchbot.HandlerFunc(func(ctx *fetchbot.Context, res *http.Response, err error) {
-		fmt.Printf("[ERR] %s %s - %s\n", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
+		mu.Lock()
+		enqued[ctx.Cmd.URL().String()] = false
+		mu.Unlock()
+		logger.Printf("[ERR] %s %s - %s\n", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
 	}))
 
 	// Handle GET requests for html responses, to parse the body and enqueue all links as HEAD requests.
@@ -43,7 +46,7 @@ func startCrawling() {
 				Host: addr.Host,
 			}
 			if err := u.Read(appDB); err != nil {
-				fmt.Printf("[ERR] url read error: %s - (%s) - %s\n", ctx.Cmd.URL(), NormalizeURL(ctx.Cmd.URL()), err)
+				logger.Printf("[ERR] url read error: %s - (%s) - %s\n", ctx.Cmd.URL(), NormalizeURL(ctx.Cmd.URL()), err)
 				return
 			}
 
@@ -59,11 +62,10 @@ func startCrawling() {
 			// Process the body to find links
 			doc, err := goquery.NewDocumentFromResponse(res)
 			if err != nil {
-				fmt.Printf("[ERR] %s %s - %s\n", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
+				logger.Printf("[ERR] %s %s - %s\n", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
 				return
 			}
 
-			fmt.Println(u)
 			u.Title = doc.Find("title").Text()
 			u.Status = res.StatusCode
 			u.ContentLength = res.ContentLength
@@ -103,7 +105,7 @@ func startCrawling() {
 			mu.Unlock()
 
 			if err := u.Read(appDB); err != nil {
-				fmt.Println("[ERR] %s %s reading - ", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
+				logger.Println("[ERR] %s %s reading - ", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
 				return
 			}
 
@@ -111,18 +113,19 @@ func startCrawling() {
 			// queue
 			if crawlingDomains[addr.Host] {
 				if err := enqueueDomainGet(u, ctx); err != nil {
-					fmt.Printf("[ERR] %s %s - %s\n", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
+					logger.Printf("[ERR] %s %s - %s\n", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
 				}
 			} else {
 				// we're not crawling this domain, let's save the head info
 				if err := u.Read(appDB); err != nil {
-					fmt.Printf("[ERR] %s %s - %s\n", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
+					logger.Printf("[ERR] %s %s - %s\n", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
 				}
 				u.Status = res.StatusCode
 				u.ContentLength = res.ContentLength
 				u.ContentType = res.Header.Get("Content-Type")
 				if err := u.Update(appDB); err != nil {
-					fmt.Printf("[ERR] %s %s - %s\n", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
+					logger.Printf("[ERR] %s %s - %s\n", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
+					logger.Printf("%#v", u)
 				}
 			}
 		}))
@@ -137,10 +140,10 @@ func startCrawling() {
 	// 	h = stopHandler(stopURL, *cancelAtURL != "", logHandler(mux))
 	// }
 
-	fmt.Println("startin' crawlin'")
+	logger.Println("startin' crawlin'")
 	f = fetchbot.New(h)
 	f.DisablePoliteness = true
-	f.CrawlDelay = 4 * time.Second
+	f.CrawlDelay = 10 * time.Second
 
 	// First mem stat print must be right after creating the fetchbot
 	// if *memStats > 0 {
@@ -161,17 +164,17 @@ func startCrawling() {
 	// if a stop or cancel is requested after some duration, launch the goroutine
 	// that will stop or cancel.
 	// if *stopAfter > 0 || *cancelAfter > 0 {
-	// 	after := *stopAfter
-	// 	stopFunc := q.Close
-	// 	if *cancelAfter != 0 {
-	// 		after = *cancelAfter
-	// 		stopFunc = q.Cancel
-	// 	}
-	// 	go func() {
-	// 		c := time.After(after)
-	// 		<-c
-	// 		stopFunc()
-	// 	}()
+	after := time.Hour * 5 // *stopAfter
+	stopFunc := q.Close
+	// if *cancelAfter != 0 {
+	// 	after = *cancelAfter
+	// 	stopFunc = q.Cancel
+	// }
+	go func() {
+		c := time.After(after)
+		<-c
+		stopFunc()
+	}()
 	// }
 
 	// do an initial domain seed
@@ -200,19 +203,30 @@ func seedDomains(db sqlQueryExecable, q *fetchbot.Queue) error {
 		if err := d.UnmarshalSQL(rows); err != nil {
 			return err
 		}
-		u, err := d.Url(db)
-		if err != nil {
-			fmt.Println(err)
-			return err
-		}
 
 		crawlingDomains[d.Host] = true
-		enqued[u.Url.String()] = true
 
 		fmt.Println("crawling domains:", crawlingDomains)
-		_, err = q.SendStringGet(u.Url.String())
-		if err != nil {
-			return err
+		// try to read a list of unfetched known urls
+		if ufd, err := UnfetchedDomainUrls(db, d.Host); err == nil || len(ufd) == 0 {
+			for _, u := range ufd {
+				_, err = q.SendStringGet(u.Url.String())
+				if err != nil {
+					return err
+				}
+				enqued[u.Url.String()] = true
+			}
+		} else {
+			u, err := d.Url(db)
+			if err != nil {
+				fmt.Println(err)
+				return err
+			}
+			enqued[u.Url.String()] = true
+			_, err = q.SendStringGet(u.Url.String())
+			if err != nil {
+				return err
+			}
 		}
 	}
 	mu.Unlock()

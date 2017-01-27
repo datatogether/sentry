@@ -69,12 +69,21 @@ func (u *Url) Insert(db sqlQueryExecable) error {
 func (u *Url) Update(db sqlQueryExecable) error {
 	u.Updated = time.Now()
 	u.Url = NormalizeURL(u.Url)
+	if u.ContentLength < -1 {
+		u.ContentLength = -1
+	}
+	if u.Status < -1 {
+		u.Status = -1
+	}
 	_, err := db.Exec("update urls set created=$2, updated=$3, last_get=$4, host=$5, status=$6, content_type=$7, content_length=$8, title=$9 where url = $1", u.SQLArgs()...)
 	return err
 }
 
 func (u *Url) Delete(db sqlQueryExecable) error {
 	_, err := db.Exec("delete from urls where url = $1", u.Url.String())
+	if err != nil {
+		logger.Println(err, u)
+	}
 	return err
 }
 
@@ -89,7 +98,7 @@ func (u *Url) DocLinks(doc *goquery.Document) ([]*Link, error) {
 		// Resolve address to source url
 		address, err := u.Url.Parse(val)
 		if err != nil {
-			fmt.Printf("error: resolve URL %s - %s\n", val, err)
+			logger.Printf("error: resolve URL %s - %s\n", val, err)
 			return
 		}
 
@@ -122,6 +131,7 @@ func (u *Url) UnmarshalSQL(row sqlScannable) error {
 		if err == sql.ErrNoRows {
 			return ErrNotFound
 		}
+		logger.Println(err)
 		return err
 	}
 
@@ -146,12 +156,15 @@ func (u *Url) UnmarshalSQL(row sqlScannable) error {
 }
 
 func (u *Url) SQLArgs() []interface{} {
-
+	t := int64(0)
+	if !u.LastGet.IsZero() {
+		t = u.LastGet.Unix()
+	}
 	return []interface{}{
 		u.Url.String(),
 		u.Created.Unix(),
 		u.Updated.Unix(),
-		u.LastGet.Unix(),
+		t,
 		u.Host,
 		u.Status,
 		u.ContentType,

@@ -35,6 +35,9 @@ func (l *Link) Insert(db sqlQueryExecable) error {
 func (l *Link) Update(db sqlQueryExecable) error {
 	l.Updated = time.Now()
 	_, err := db.Exec(fmt.Sprintf("update link set created = $1, updated = $2 where src = $3 and dst = $4", linkCols()), l.SQLArgs()...)
+	if err != nil {
+		logger.Println(err, l)
+	}
 	return err
 }
 
@@ -61,6 +64,7 @@ func (l *Link) UnmarshalSQL(row sqlScannable) error {
 		if err == sql.ErrNoRows {
 			return ErrNotFound
 		}
+		logger.Println(err.Error())
 		return err
 	}
 

@@ -17,7 +17,7 @@ CREATE TABLE urls (
 	host 						text,
 	status 					integer default 0,
 	content_type 		text default '',
-	content_length 	integer default 0,
+	content_length 	bigint default 0,
 	title  					text default ''
 );
 
