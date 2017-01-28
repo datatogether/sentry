@@ -15,6 +15,37 @@ import (
 // see homeHandler for an example
 var templates = template.Must(template.ParseFiles("views/index.html", "views/expired.html", "views/accessDenied.html", "views/notFound.html"))
 
+func MemStatsHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	mu.Lock()
+	w.Write(memStats(nil))
+	mu.Unlock()
+}
+
+func EnquedHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	mu.Lock()
+	w.Write(enquedDomains())
+	mu.Unlock()
+}
+
+func SeedUrlHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	if queue != nil {
+		u, err := NormalizeURLString(r.FormValue("url"))
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(fmt.Sprintf("'%s' is not a valid url", r.FormValue("url"))))
+			return
+		}
+		queue.SendStringGet(u)
+	} else {
+
+	}
+}
+
+func ShutdownHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	stopCrawler <- true
+	w.Write([]byte("shutting down"))
+}
+
 // HomeHandler renders the home page
 func HomeHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	renderTemplate(w, "index.html")

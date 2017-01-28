@@ -6,7 +6,9 @@
 
 	"APP_DB_URL" : "postgresql://brendan:iwtscf1y@localhost:5432/crawler?sslmode=disable",
 
-	"STALE_DURATION"  : 21600000000000,
+	"polite" : false,
+	"stale_duration_hours"  : 10,
+	"crawl_delay_seconds" : 5,
 
 	"template_data" : {
 		"title" : "Dataset Uploader",

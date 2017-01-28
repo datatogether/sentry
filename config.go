@@ -10,6 +10,10 @@ import (
 	"time"
 )
 
+func StaleDuration() time.Duration {
+	return cfg.StaleDurationHours * time.Hour
+}
+
 // config holds all configuration for the server. It pulls from two places:
 // a config.json file in the local directory, and then from environment variables
 // any non-empty env variables override the config.json setting.
@@ -21,8 +25,18 @@ type config struct {
 	// url of postgres app db
 	AppDbUrl string `json:"APP_DB_URL"`
 
-	// How long before a url is considered stale
-	StaleDuration time.Duration `json:"STALE_DURATION"`
+	// How long before a url is considered stale, in hours.
+	StaleDurationHours time.Duration `json:"stale_duration_hours"`
+
+	// Weather or not the crawler respects robots.txt
+	Polite bool
+
+	// how long to wait between requests. one day this'll be dynamically
+	// modifiable
+	CrawlDelaySeconds time.Duration `json:"crawl_delay_seconds"`
+
+	// Content Types to Store
+	StoreContentTypes []string
 
 	// read from env variable: AWS_REGION
 	// the region your bucket is in, eg "us-east-1"
@@ -90,7 +104,7 @@ func initConfig() (cfg *config, err error) {
 	cfg.Port = readEnvString("PORT", cfg.AwsAccessKeyId)
 	cfg.HttpAuthUsername = readEnvString("HTTP_AUTH_USERNAME", cfg.HttpAuthUsername)
 	cfg.HttpAuthPassword = readEnvString("HTTP_AUTH_PASSWORD", cfg.HttpAuthPassword)
-	cfg.StaleDuration = readEnvDuration("STALE_DURATION", cfg.StaleDuration)
+	// cfg.StaleDuration = readEnvInt("STALE_DURATION", cfg.StaleDuration)
 
 	// make sure port is set
 	if cfg.Port == "" {

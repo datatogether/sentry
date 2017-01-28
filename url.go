@@ -24,11 +24,11 @@ type Url struct {
 // ShouldFetch returns weather the url should be added to the queue for updating
 // should return true if the url is new, or if we haven't checked this url in a while
 func (u *Url) ShouldEnqueueGet() bool {
-	return (u.LastGet.IsZero() || time.Since(u.LastGet) > cfg.StaleDuration) && !enqued[u.Url.String()]
+	return (u.LastGet.IsZero() || time.Since(u.LastGet) > StaleDuration()) && !enqued[u.Url.String()]
 }
 
 func (u *Url) ShouldEnqueueHead() bool {
-	return (u.Created == u.Updated || u.LastGet.IsZero() || time.Since(u.Updated) > cfg.StaleDuration) && !enqued[u.Url.String()]
+	return (u.Created == u.Updated || u.LastGet.IsZero() || time.Since(u.Updated) > StaleDuration()) && !enqued[u.Url.String()]
 }
 
 func (u *Url) Read(db sqlQueryable) error {

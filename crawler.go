@@ -15,14 +15,19 @@ import (
 
 var (
 	// the fetcher that's doing the crawling
+	// @TODO - this shouldn't be global.
 	f *fetchbot.Fetcher
+	// the queue
+	// @TODO - this shouldn't be global either.
+	queue *fetchbot.Queue
 
 	// Protect access to crawling domains map
 	mu sync.Mutex
 	// map of domains currently crawling
 	crawlingDomains = map[string]bool{}
 	// dupe map
-	enqued = map[string]bool{}
+	enqued      = map[string]bool{}
+	stopCrawler chan bool
 )
 
 func startCrawling() {
@@ -32,7 +37,7 @@ func startCrawling() {
 	// Handle all errors the same
 	mux.HandleErrors(fetchbot.HandlerFunc(func(ctx *fetchbot.Context, res *http.Response, err error) {
 		mu.Lock()
-		enqued[ctx.Cmd.URL().String()] = false
+		delete(enqued, ctx.Cmd.URL().String())
 		mu.Unlock()
 		logger.Printf("[ERR] %s %s - %s\n", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
 	}))
@@ -51,7 +56,7 @@ func startCrawling() {
 			}
 
 			mu.Lock()
-			enqued[u.Url.String()] = false
+			delete(enqued, u.Url.String())
 			mu.Unlock()
 
 			// if err := u.ReadDomain(appDB); err != nil {
@@ -142,8 +147,8 @@ func startCrawling() {
 
 	logger.Println("startin' crawlin'")
 	f = fetchbot.New(h)
-	f.DisablePoliteness = true
-	f.CrawlDelay = 10 * time.Second
+	f.DisablePoliteness = !cfg.Polite
+	f.CrawlDelay = cfg.CrawlDelaySeconds * time.Second
 
 	// First mem stat print must be right after creating the fetchbot
 	// if *memStats > 0 {
@@ -160,29 +165,37 @@ func startCrawling() {
 
 	// Start processing
 	q := f.Start()
+	queue = q
 
 	// if a stop or cancel is requested after some duration, launch the goroutine
 	// that will stop or cancel.
 	// if *stopAfter > 0 || *cancelAfter > 0 {
-	after := time.Hour * 5 // *stopAfter
-	stopFunc := q.Close
+	// after := time.Hour * 5 // *stopAfter
+	// stopFunc := q.Close
 	// if *cancelAfter != 0 {
 	// 	after = *cancelAfter
 	// 	stopFunc = q.Cancel
 	// }
+	// go func() {
+	// 	c := time.After(after)
+	// 	<-c
+	// 	stopFunc()
+	// }()
+	// }
+
+	stopFunc := q.Close
+	stopCrawler = make(chan bool)
 	go func() {
-		c := time.After(after)
-		<-c
+		<-stopCrawler
 		stopFunc()
 	}()
-	// }
 
 	// do an initial domain seed
 	seedDomains(appDB, q)
 
 	// every half stale-duration, check to see if top levels need to be re-crawled for staleness
 	go func() {
-		c := time.After(time.Duration(cfg.StaleDuration / 2))
+		c := time.After(time.Duration(StaleDuration() / 2))
 		<-c
 		seedDomains(appDB, q)
 	}()
@@ -216,18 +229,19 @@ func seedDomains(db sqlQueryExecable, q *fetchbot.Queue) error {
 				}
 				enqued[u.Url.String()] = true
 			}
-		} else {
-			u, err := d.Url(db)
-			if err != nil {
-				fmt.Println(err)
-				return err
-			}
-			enqued[u.Url.String()] = true
-			_, err = q.SendStringGet(u.Url.String())
-			if err != nil {
-				return err
-			}
+		} //else {
+
+		u, err := d.Url(db)
+		if err != nil {
+			fmt.Println(err)
+			return err
 		}
+		enqued[u.Url.String()] = true
+		_, err = q.SendStringGet(u.Url.String())
+		if err != nil {
+			return err
+		}
+		// }
 	}
 	mu.Unlock()
 	return nil
@@ -317,30 +331,7 @@ func logHandler(wrapped fetchbot.Handler) fetchbot.Handler {
 	})
 }
 
-func runMemStats(f *fetchbot.Fetcher, tick time.Duration) {
-	var mu sync.Mutex
-	var di *fetchbot.DebugInfo
-
-	// Start goroutine to collect fetchbot debug info
-	go func() {
-		for v := range f.Debug() {
-			mu.Lock()
-			di = v
-			mu.Unlock()
-		}
-	}()
-	// Start ticker goroutine to print mem stats at regular intervals
-	go func() {
-		c := time.Tick(tick)
-		for _ = range c {
-			mu.Lock()
-			printMemStats(di)
-			mu.Unlock()
-		}
-	}()
-}
-
-func printMemStats(di *fetchbot.DebugInfo) {
+func memStats(di *fetchbot.DebugInfo) []byte {
 	var mem runtime.MemStats
 	runtime.ReadMemStats(&mem)
 	buf := bytes.NewBuffer(nil)
@@ -354,5 +345,18 @@ func printMemStats(di *fetchbot.DebugInfo) {
 		buf.WriteString(fmt.Sprintf("\tNumHosts: %d\n", di.NumHosts))
 	}
 	buf.WriteString(strings.Repeat("=", 72))
-	fmt.Println(buf.String())
+	return buf.Bytes()
+}
+
+func enquedDomains() []byte {
+	buf := bytes.NewBuffer(nil)
+	buf.WriteString("Enqued Urls:\n")
+	i := 0
+	for u, t := range enqued {
+		if t == true {
+			buf.WriteString(fmt.Sprintf("%d - %s\n", i, u))
+			i++
+		}
+	}
+	return buf.Bytes()
 }

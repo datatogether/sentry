@@ -47,6 +47,10 @@ func main() {
 	// home handler, wrapped in middlware func
 	r.GET("/", middleware(HandleDomains))
 
+	r.GET("/mem", middleware(MemStatsHandler))
+	r.GET("/que", middleware(EnquedHandler))
+	r.POST("/shutdown", middleware(ShutdownHandler))
+
 	// serve static content from public directory
 	r.ServeFiles("/css/*filepath", http.Dir("public/css"))
 	r.ServeFiles("/js/*filepath", http.Dir("public/js"))
