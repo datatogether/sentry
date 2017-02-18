@@ -18,7 +18,13 @@ CREATE TABLE urls (
 	status 					integer default 0,
 	content_type 		text default '',
 	content_length 	bigint default 0,
-	title  					text default ''
+	title  					text default '',
+	id 							text default '',
+	headers_took 		integer default 0,
+	download_took 	integer default 0,
+	headers 				json,
+	meta 						json,
+	file 						text default ''
 );
 
 CREATE TABLE links (

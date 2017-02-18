@@ -45,7 +45,10 @@ func startCrawling() {
 	// Handle GET requests for html responses, to parse the body and enqueue all links as HEAD requests.
 	mux.Response().Method("GET").ContentType("text/html").Handler(fetchbot.HandlerFunc(
 		func(ctx *fetchbot.Context, res *http.Response, err error) {
-			addr := NormalizeURL(ctx.Cmd.URL())
+			// TODO
+			// addr := NormalizeURL(ctx.Cmd.URL())
+			addr := ctx.Cmd.URL()
+
 			u := &Url{
 				Url:  addr,
 				Host: addr.Host,
@@ -75,11 +78,27 @@ func startCrawling() {
 			u.Status = res.StatusCode
 			u.ContentLength = res.ContentLength
 			u.ContentType = res.Header.Get("Content-Type")
-			u.LastGet = time.Now()
+			u.Date = time.Now()
 			links, err := u.DocLinks(doc)
 			if err != nil {
 				fmt.Printf("[ERR] finding doc links: %s - %s\n", u.Url.String(), err)
 				return
+			}
+
+			f, err := NewFileFromRes(u.Url.String(), res)
+			if err != nil {
+				fmt.Println("[ERR] generating response file: %s - %s", u.Url.String(), err)
+				return
+			}
+
+			u.File = f.Hash
+
+			if u.ShouldSave() {
+				go func() {
+					if err := f.PutS3(); err != nil {
+						fmt.Println("[ERR] putting file to S3: %s - %s", u.Url.String(), err)
+					}
+				}()
 			}
 
 			if err := u.Update(appDB); err != nil {
@@ -98,11 +117,16 @@ func startCrawling() {
 	mux.Response().Method("HEAD").ContentType("text/html").Handler(fetchbot.HandlerFunc(
 		func(ctx *fetchbot.Context, res *http.Response, err error) {
 			// Normalize the host right out the gate
-			addr := NormalizeURL(ctx.Cmd.URL())
+			// TODO - disabled for now, ask about this for matching others
+			// addr := NormalizeURL(ctx.Cmd.URL())
+			addr := ctx.Cmd.URL()
 
 			u := &Url{
-				Url:  addr,
-				Host: addr.Host,
+				Url:     addr,
+				Host:    addr.Host,
+				Headers: rawHeadersSlice(res),
+				// TODO HeadersTook: 0,
+				// TODO DownloadTook: 0,
 			}
 
 			mu.Lock()
@@ -319,6 +343,13 @@ func stopHandler(stopurl string, cancel bool, wrapped fetchbot.Handler) fetchbot
 		}
 		wrapped.Handle(ctx, res, err)
 	})
+}
+
+func rawHeadersSlice(res *http.Response) (headers []string) {
+	for key, val := range res.Header {
+		headers = append(headers, []string{key, strings.Join(val, ",")}...)
+	}
+	return
 }
 
 // logHandler prints the fetch information and dispatches the call to the wrapped Handler.

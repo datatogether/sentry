@@ -48,6 +48,8 @@ type config struct {
 	AwsAccessKeyId string `json:"AWS_ACCESS_KEY_ID"`
 	// read from env variable: AWS_SECRET_ACCESS_KEY
 	AwsSecretAccessKey string `json:"AWS_SECRET_ACCESS_KEY"`
+	// path to store & retrieve data from
+	AwsS3BucketPath string `json:"AWS_S3_BUCKET_PATH"`
 
 	// seed        = flag.String("seed", "", "seed URL")
 	// cancelAfter = flag.Duration("cancelafter", 0, "automatically cancel the fetchbot after a given time")

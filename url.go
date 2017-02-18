@@ -2,33 +2,45 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/pborman/uuid"
 )
 
 type Url struct {
 	Url           *url.URL
 	Created       time.Time
 	Updated       time.Time
-	LastGet       time.Time
+	Date          time.Time
 	Host          string
 	Status        int
 	ContentType   string
 	ContentLength int64
 	Title         string
+	Id            string
+	DownloadTook  int
+	HeadersTook   int
+	Headers       []string
+	Meta          []interface{}
+	File          string
 }
 
 // ShouldFetch returns weather the url should be added to the queue for updating
 // should return true if the url is new, or if we haven't checked this url in a while
 func (u *Url) ShouldEnqueueGet() bool {
-	return (u.LastGet.IsZero() || time.Since(u.LastGet) > StaleDuration()) && !enqued[u.Url.String()]
+	return (u.Date.IsZero() || time.Since(u.Date) > StaleDuration()) && !enqued[u.Url.String()]
 }
 
 func (u *Url) ShouldEnqueueHead() bool {
-	return (u.Created == u.Updated || u.LastGet.IsZero() || time.Since(u.Updated) > StaleDuration()) && !enqued[u.Url.String()]
+	return (u.Created == u.Updated || u.Date.IsZero() || time.Since(u.Updated) > StaleDuration()) && !enqued[u.Url.String()]
+}
+
+func (u *Url) ShouldSave() bool {
+	return true
 }
 
 func (u *Url) Read(db sqlQueryable) error {
@@ -62,7 +74,8 @@ func (u *Url) Insert(db sqlQueryExecable) error {
 	u.Updated = u.Created
 	u.Url = NormalizeURL(u.Url)
 	u.Host = u.Url.Host
-	_, err := db.Exec(fmt.Sprintf("insert into urls (%s) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)", urlCols()), u.SQLArgs()...)
+	u.Id = uuid.New()
+	_, err := db.Exec(fmt.Sprintf("insert into urls (%s) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)", urlCols()), u.SQLArgs()...)
 	return err
 }
 
@@ -117,17 +130,19 @@ func (u *Url) DocLinks(doc *goquery.Document) ([]*Link, error) {
 }
 
 func urlCols() string {
-	return "url, created, updated, last_get, host, status, content_type, content_length, title"
+	return "url, created, updated, last_get, host, status, content_type, content_length, title, id, headers_took, download_took, headers, meta, file"
 }
 
 func (u *Url) UnmarshalSQL(row sqlScannable) error {
 	var (
-		rawurl, host, mime, title         string
-		created, updated, lastGet, length int64
-		status                            int
+		rawurl, host, mime, title, id, file string
+		created, updated, lastGet, length   int64
+		headersTook, downloadTook           int
+		headerBytes, metaBytes              []byte
+		status                              int
 	)
 
-	if err := row.Scan(&rawurl, &created, &updated, &lastGet, &host, &status, &mime, &length, &title); err != nil {
+	if err := row.Scan(&rawurl, &created, &updated, &lastGet, &host, &status, &mime, &length, &title, &id, &headersTook, &downloadTook, &headerBytes, &metaBytes, &file); err != nil {
 		if err == sql.ErrNoRows {
 			return ErrNotFound
 		}
@@ -140,16 +155,34 @@ func (u *Url) UnmarshalSQL(row sqlScannable) error {
 		return err
 	}
 
+	headers := []string{}
+	err = json.Unmarshal(headerBytes, headers)
+	if err != nil {
+		return err
+	}
+
+	meta := []interface{}{}
+	err = json.Unmarshal(metaBytes, meta)
+	if err != nil {
+		return err
+	}
+
 	*u = Url{
 		Created:       time.Unix(created, 0),
 		Updated:       time.Unix(updated, 0),
-		LastGet:       time.Unix(lastGet, 0),
+		Date:          time.Unix(lastGet, 0),
 		Url:           parsedUrl,
 		Host:          host,
 		Status:        status,
 		ContentType:   mime,
 		ContentLength: length,
 		Title:         title,
+		Id:            id,
+		HeadersTook:   headersTook,
+		DownloadTook:  downloadTook,
+		Headers:       headers,
+		Meta:          meta,
+		File:          file,
 	}
 
 	return nil
@@ -157,9 +190,19 @@ func (u *Url) UnmarshalSQL(row sqlScannable) error {
 
 func (u *Url) SQLArgs() []interface{} {
 	t := int64(0)
-	if !u.LastGet.IsZero() {
-		t = u.LastGet.Unix()
+	if !u.Date.IsZero() {
+		t = u.Date.Unix()
 	}
+
+	headerBytes, err := json.Marshal(u.Headers)
+	if err != nil {
+		panic(err)
+	}
+	metaBytes, err := json.Marshal(u.Meta)
+	if err != nil {
+		panic(err)
+	}
+
 	return []interface{}{
 		u.Url.String(),
 		u.Created.Unix(),
@@ -170,5 +213,11 @@ func (u *Url) SQLArgs() []interface{} {
 		u.ContentType,
 		u.ContentLength,
 		u.Title,
+		u.Id,
+		u.HeadersTook,
+		u.DownloadTook,
+		headerBytes,
+		metaBytes,
+		u.File,
 	}
 }
