@@ -4,7 +4,9 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"net/url"
 	"text/template"
 	"time"
 
@@ -27,18 +29,62 @@ func EnquedHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) 
 	mu.Unlock()
 }
 
+func reqUrl(r *http.Request) (*url.URL, error) {
+	return url.Parse(r.FormValue("url"))
+}
+
 func SeedUrlHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	if queue != nil {
-		u, err := NormalizeURLString(r.FormValue("url"))
+		// u, err := NormalizeURLString(r.FormValue("url"))
+		u, err := reqUrl(r)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(fmt.Sprintf("'%s' is not a valid url", r.FormValue("url"))))
+			io.WriteString(w, fmt.Sprintf("'%s' is not a valid url", r.FormValue("url")))
 			return
 		}
-		queue.SendStringGet(u)
+		queue.SendStringGet(u.String())
+		w.WriteHeader(http.StatusOK)
+		io.WriteString(w, fmt.Sprintf("added url: %s", u.String()))
 	} else {
-
+		w.WriteHeader(http.StatusBadRequest)
+		io.WriteString(w, fmt.Sprintf("'%s' is not a valid url", r.FormValue("url")))
 	}
+}
+
+func UrlMetadataHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	reqUrl, err := reqUrl(r)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		io.WriteString(w, fmt.Sprintf("'%s' is not a valid url", r.FormValue("url")))
+		return
+	}
+
+	u := &Url{Url: reqUrl}
+	if err := u.Read(appDB); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		io.WriteString(w, fmt.Sprintf("read url '%s' err: %s", reqUrl.String(), err.Error()))
+		return
+	}
+
+	data, err := json.Marshal(u.Metadata())
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		io.WriteString(w, fmt.Sprintf("encode json error: %s", err.Error()))
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Header().Add("Content-Type", "application/json")
+	w.Write(data)
+}
+
+func UrlAddMetadataHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	// u, err := reqUrl(r)
+	// if err != nil {
+	// 	w.WriteHeader(http.StatusBadRequest)
+	// 	io.WriteString(w, fmt.Sprintf("'%s' is not a valid url", r.FormValue("url")))
+	// 	return
+	// }
 }
 
 func ShutdownHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {

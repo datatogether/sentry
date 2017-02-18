@@ -88,7 +88,7 @@ func (u *Url) Update(db sqlQueryExecable) error {
 	if u.Status < -1 {
 		u.Status = -1
 	}
-	_, err := db.Exec("update urls set created=$2, updated=$3, last_get=$4, host=$5, status=$6, content_type=$7, content_length=$8, title=$9 where url = $1", u.SQLArgs()...)
+	_, err := db.Exec("update urls set created=$2, updated=$3, last_get=$4, host=$5, status=$6, content_type=$7, content_length=$8, title=$9, id=$10, headers_took=$11, download_took=$12, headers=$13, meta=$14, file=$15 where url = $1", u.SQLArgs()...)
 	return err
 }
 
@@ -155,16 +155,22 @@ func (u *Url) UnmarshalSQL(row sqlScannable) error {
 		return err
 	}
 
-	headers := []string{}
-	err = json.Unmarshal(headerBytes, headers)
-	if err != nil {
-		return err
+	var headers []string
+	if headerBytes != nil {
+		headers = []string{}
+		err = json.Unmarshal(headerBytes, &headers)
+		if err != nil {
+			return err
+		}
 	}
 
-	meta := []interface{}{}
-	err = json.Unmarshal(metaBytes, meta)
-	if err != nil {
-		return err
+	var meta []interface{}
+	if metaBytes != nil {
+		meta = []interface{}{}
+		err = json.Unmarshal(metaBytes, &meta)
+		if err != nil {
+			return err
+		}
 	}
 
 	*u = Url{
@@ -219,5 +225,30 @@ func (u *Url) SQLArgs() []interface{} {
 		headerBytes,
 		metaBytes,
 		u.File,
+	}
+}
+
+func (u *Url) HeadersMap() (headers map[string]string) {
+	headers = map[string]string{}
+	for i, s := range u.Headers {
+		if i%2 == 0 {
+			headers[s] = u.Headers[i+1]
+		}
+	}
+	return
+}
+
+func (u *Url) Metadata() *Meta {
+	fmt.Println(u.Headers)
+	return &Meta{
+		Url:          u.Url.String(),
+		Date:         u.Date,
+		HeadersTook:  u.HeadersTook,
+		Id:           u.Id,
+		Status:       u.Status,
+		RawHeaders:   u.Headers,
+		Headers:      u.HeadersMap(),
+		DownloadTook: u.DownloadTook,
+		File:         u.File,
 	}
 }

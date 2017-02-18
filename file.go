@@ -26,11 +26,13 @@ func NewFileFromRes(url string, res *http.Response) (*File, error) {
 	}
 
 	if _, err := io.Copy(f.Data, res.Body); err != nil {
+		fmt.Println("copy error: %s")
 		return nil, err
 	}
+	defer res.Body.Close()
 
 	f.CalcHash()
-	return f, res.Body.Close()
+	return f, nil
 }
 
 func (f *File) CalcHash() {
@@ -54,6 +56,7 @@ func (f *File) PutS3() error {
 	}))
 
 	_, err := svc.PutObject(&s3.PutObjectInput{
+		ACL:    aws.String(s3.BucketCannedACLPublicRead),
 		Bucket: aws.String(cfg.AwsS3BucketName),
 		Key:    aws.String(f.s3Path(f.Hash)),
 		Body:   bytes.NewReader(f.Data.Bytes()),

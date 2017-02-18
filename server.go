@@ -38,14 +38,21 @@ func init() {
 func main() {
 	connectToAppDb()
 
-	// what a wonderful phrase :)
-	go startCrawling()
+	if cfg.Crawl {
+		// what a wonderful phrase :)
+		go startCrawling()
+	}
 
 	// initialize a router to handle requests
 	r := httprouter.New()
 
 	// home handler, wrapped in middlware func
 	r.GET("/", middleware(HandleDomains))
+
+	r.POST("/seed", middleware(SeedUrlHandler))
+
+	r.GET("/url", middleware(UrlMetadataHandler))
+	r.POST("/url/meta", middleware(UrlAddMetadataHandler))
 
 	r.GET("/mem", middleware(MemStatsHandler))
 	r.GET("/que", middleware(EnquedHandler))

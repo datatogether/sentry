@@ -8,15 +8,12 @@
 
 	"APP_DB_URL" : "postgresql://b5@localhost:5432/sentry?sslmode=disable",
 
+	"crawl" : false,
 	"polite" : false,
 	"stale_duration_hours"  : 10,
 	"crawl_delay_seconds" : 5,
 
 	"template_data" : {
-		"title" : "Dataset Uploader",
-		"message" : "Max File Size: 5GB",
-		"expired_title" : "Upload Period Expired",
-		"expired_message" : "Sorry, but this server is no longer accepting uploads",
-		"access_denied_message" : "Invalid http auth username / password combo"
+		"title" : "Sentry"
 	}
 }

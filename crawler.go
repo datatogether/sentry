@@ -54,7 +54,8 @@ func startCrawling() {
 				Host: addr.Host,
 			}
 			if err := u.Read(appDB); err != nil {
-				logger.Printf("[ERR] url read error: %s - (%s) - %s\n", ctx.Cmd.URL(), NormalizeURL(ctx.Cmd.URL()), err)
+				// logger.Printf("[ERR] url read error: %s - (%s) - %s\n", ctx.Cmd.URL(), NormalizeURL(ctx.Cmd.URL()), err)
+				logger.Printf("[ERR] url read error: %s - %s\n", u.Url.String(), err)
 				return
 			}
 
@@ -67,8 +68,24 @@ func startCrawling() {
 			// 	return
 			// }
 
+			f, err := NewFileFromRes(u.Url.String(), res)
+			if err != nil {
+				logger.Printf("[ERR] generating response file: %s - %s\n", u.Url.String(), err)
+				return
+			}
+
+			u.File = f.Hash
+
+			if u.ShouldSave() {
+				go func() {
+					if err := f.PutS3(); err != nil {
+						logger.Printf("[ERR] putting file to S3: %s - %s\n", u.Url.String(), err)
+					}
+				}()
+			}
+
 			// Process the body to find links
-			doc, err := goquery.NewDocumentFromResponse(res)
+			doc, err := goquery.NewDocumentFromReader(f.Data)
 			if err != nil {
 				logger.Printf("[ERR] %s %s - %s\n", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
 				return
@@ -79,26 +96,11 @@ func startCrawling() {
 			u.ContentLength = res.ContentLength
 			u.ContentType = res.Header.Get("Content-Type")
 			u.Date = time.Now()
+			u.Headers = rawHeadersSlice(res)
 			links, err := u.DocLinks(doc)
 			if err != nil {
-				fmt.Printf("[ERR] finding doc links: %s - %s\n", u.Url.String(), err)
+				logger.Printf("[ERR] finding doc links: %s - %s\n", u.Url.String(), err)
 				return
-			}
-
-			f, err := NewFileFromRes(u.Url.String(), res)
-			if err != nil {
-				fmt.Println("[ERR] generating response file: %s - %s", u.Url.String(), err)
-				return
-			}
-
-			u.File = f.Hash
-
-			if u.ShouldSave() {
-				go func() {
-					if err := f.PutS3(); err != nil {
-						fmt.Println("[ERR] putting file to S3: %s - %s", u.Url.String(), err)
-					}
-				}()
 			}
 
 			if err := u.Update(appDB); err != nil {
@@ -235,6 +237,7 @@ func seedDomains(db sqlQueryExecable, q *fetchbot.Queue) error {
 	}
 
 	mu.Lock()
+	defer mu.Unlock()
 	for rows.Next() {
 		d := &Domain{}
 		if err := d.UnmarshalSQL(rows); err != nil {
@@ -267,7 +270,6 @@ func seedDomains(db sqlQueryExecable, q *fetchbot.Queue) error {
 		}
 		// }
 	}
-	mu.Unlock()
 	return nil
 }
 

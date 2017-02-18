@@ -28,6 +28,9 @@ type config struct {
 	// How long before a url is considered stale, in hours.
 	StaleDurationHours time.Duration `json:"stale_duration_hours"`
 
+	// crawl urls?
+	Crawl bool `json:"crawl"`
+
 	// Weather or not the crawler respects robots.txt
 	Polite bool
 
@@ -106,6 +109,8 @@ func initConfig() (cfg *config, err error) {
 	cfg.Port = readEnvString("PORT", cfg.AwsAccessKeyId)
 	cfg.HttpAuthUsername = readEnvString("HTTP_AUTH_USERNAME", cfg.HttpAuthUsername)
 	cfg.HttpAuthPassword = readEnvString("HTTP_AUTH_PASSWORD", cfg.HttpAuthPassword)
+	cfg.AwsAccessKeyId = readEnvString("AWS_ACCESS_KEY_ID", cfg.AwsAccessKeyId)
+	cfg.AwsSecretAccessKey = readEnvString("AWS_SECRET_ACCESS_KEY", cfg.AwsSecretAccessKey)
 	// cfg.StaleDuration = readEnvInt("STALE_DURATION", cfg.StaleDuration)
 
 	// make sure port is set
