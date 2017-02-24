@@ -13,5 +13,6 @@ type Meta struct {
 	RawHeaders   []string          `json:"rawHeaders""`
 	Headers      map[string]string `json:"headers"`
 	DownloadTook int               `json:"downloadTook,omitempty"`
-	File         string            `json:"file"`
+	Sha256       string            `json:"sha256"`
+	Multihash    string            `json:"multihash"`
 }

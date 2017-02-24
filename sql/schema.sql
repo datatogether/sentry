@@ -24,15 +24,24 @@ CREATE TABLE urls (
 	download_took 	integer default 0,
 	headers 				json,
 	meta 						json,
-	file 						text default ''
+	hash 						text default ''
 );
 
 CREATE TABLE links (
-	created 		integer NOT NULL,
-	updated 		integer NOT NULL,
-	src 				text references urls(url),
-	dst 				text references urls(url),
-	PRIMARY KEY (src, dst)
+	created 				integer NOT NULL,
+	updated 				integer NOT NULL,
+	src 						text references urls(url),
+	dst 						text references urls(url),
+	PRIMARY KEY 		(src, dst)
+);
+
+CREATE TABLE context (
+	url 						text PRIMARY KEY NOT NULL references urls(url),
+	created 				integer NOT NULL,
+	updated 				integer NOT NULL,
+	hash 						text NOT NULL,
+	contributor_id 	text NOT NULL,
+	context 				json
 );
 
 -- for domains table later?

@@ -20,7 +20,6 @@ var (
 	// the queue
 	// @TODO - this shouldn't be global either.
 	queue *fetchbot.Queue
-
 	// Protect access to crawling domains map
 	mu sync.Mutex
 	// map of domains currently crawling
@@ -74,7 +73,7 @@ func startCrawling() {
 				return
 			}
 
-			u.File = f.Hash
+			u.Hash = f.Hash
 
 			if u.ShouldSave() {
 				go func() {
@@ -171,7 +170,7 @@ func startCrawling() {
 	// 	h = stopHandler(stopURL, *cancelAtURL != "", logHandler(mux))
 	// }
 
-	logger.Println("startin' crawlin'")
+	logger.Println("starting crawl")
 	f = fetchbot.New(h)
 	f.DisablePoliteness = !cfg.Polite
 	f.CrawlDelay = cfg.CrawlDelaySeconds * time.Second

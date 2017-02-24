@@ -11,7 +11,7 @@
 	"crawl" : false,
 	"polite" : false,
 	"stale_duration_hours"  : 10,
-	"crawl_delay_seconds" : 5,
+	"crawl_delay_seconds" : 2,
 
 	"template_data" : {
 		"title" : "Sentry"

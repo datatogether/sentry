@@ -26,7 +26,7 @@ type Url struct {
 	HeadersTook   int
 	Headers       []string
 	Meta          []interface{}
-	File          string
+	Hash          string
 }
 
 // ShouldFetch returns weather the url should be added to the queue for updating
@@ -88,7 +88,7 @@ func (u *Url) Update(db sqlQueryExecable) error {
 	if u.Status < -1 {
 		u.Status = -1
 	}
-	_, err := db.Exec("update urls set created=$2, updated=$3, last_get=$4, host=$5, status=$6, content_type=$7, content_length=$8, title=$9, id=$10, headers_took=$11, download_took=$12, headers=$13, meta=$14, file=$15 where url = $1", u.SQLArgs()...)
+	_, err := db.Exec("update urls set created=$2, updated=$3, last_get=$4, host=$5, status=$6, content_type=$7, content_length=$8, title=$9, id=$10, headers_took=$11, download_took=$12, headers=$13, meta=$14, hash=$15 where url = $1", u.SQLArgs()...)
 	return err
 }
 
@@ -130,19 +130,19 @@ func (u *Url) DocLinks(doc *goquery.Document) ([]*Link, error) {
 }
 
 func urlCols() string {
-	return "url, created, updated, last_get, host, status, content_type, content_length, title, id, headers_took, download_took, headers, meta, file"
+	return "url, created, updated, last_get, host, status, content_type, content_length, title, id, headers_took, download_took, headers, meta, hash"
 }
 
 func (u *Url) UnmarshalSQL(row sqlScannable) error {
 	var (
-		rawurl, host, mime, title, id, file string
+		rawurl, host, mime, title, id, hash string
 		created, updated, lastGet, length   int64
 		headersTook, downloadTook           int
 		headerBytes, metaBytes              []byte
 		status                              int
 	)
 
-	if err := row.Scan(&rawurl, &created, &updated, &lastGet, &host, &status, &mime, &length, &title, &id, &headersTook, &downloadTook, &headerBytes, &metaBytes, &file); err != nil {
+	if err := row.Scan(&rawurl, &created, &updated, &lastGet, &host, &status, &mime, &length, &title, &id, &headersTook, &downloadTook, &headerBytes, &metaBytes, &hash); err != nil {
 		if err == sql.ErrNoRows {
 			return ErrNotFound
 		}
@@ -188,7 +188,7 @@ func (u *Url) UnmarshalSQL(row sqlScannable) error {
 		DownloadTook:  downloadTook,
 		Headers:       headers,
 		Meta:          meta,
-		File:          file,
+		Hash:          hash,
 	}
 
 	return nil
@@ -224,7 +224,7 @@ func (u *Url) SQLArgs() []interface{} {
 		u.DownloadTook,
 		headerBytes,
 		metaBytes,
-		u.File,
+		u.Hash,
 	}
 }
 
@@ -239,7 +239,6 @@ func (u *Url) HeadersMap() (headers map[string]string) {
 }
 
 func (u *Url) Metadata() *Meta {
-	fmt.Println(u.Headers)
 	return &Meta{
 		Url:          u.Url.String(),
 		Date:         u.Date,
@@ -249,6 +248,7 @@ func (u *Url) Metadata() *Meta {
 		RawHeaders:   u.Headers,
 		Headers:      u.HeadersMap(),
 		DownloadTook: u.DownloadTook,
-		File:         u.File,
+		// Sha256:       u.Sha256,
+		Multihash: u.Hash,
 	}
 }

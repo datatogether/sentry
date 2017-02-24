@@ -15,7 +15,7 @@ import (
 
 // templates is a collection of views for rendering with the renderTemplate function
 // see homeHandler for an example
-var templates = template.Must(template.ParseFiles("views/index.html", "views/expired.html", "views/accessDenied.html", "views/notFound.html"))
+var templates = template.Must(template.ParseFiles("views/index.html", "views/accessDenied.html", "views/notFound.html", "views/urls.html", "views/url.html"))
 
 func MemStatsHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	mu.Lock()
@@ -66,6 +66,48 @@ func UrlMetadataHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Par
 		return
 	}
 
+	data, err := json.MarshalIndent(u.Metadata(), "", "  ")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		io.WriteString(w, fmt.Sprintf("encode json error: %s", err.Error()))
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Header().Add("Content-Type", "application/json")
+	w.Write(data)
+}
+
+func UrlSetMetadataHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	reqUrl, err := reqUrl(r)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		io.WriteString(w, fmt.Sprintf("'%s' is not a valid url", r.FormValue("url")))
+		return
+	}
+
+	u := &Url{Url: reqUrl}
+	if err := u.Read(appDB); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		io.WriteString(w, fmt.Sprintf("read url '%s' err: %s", reqUrl.String(), err.Error()))
+		return
+	}
+
+	defer r.Body.Close()
+	meta := []interface{}{}
+	if err := json.NewDecoder(r.Body).Decode(&meta); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		io.WriteString(w, fmt.Sprintf("json parse err: %s", err.Error()))
+		return
+	}
+	u.Meta = meta
+
+	if err := u.Update(appDB); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		io.WriteString(w, fmt.Sprintf("save url error: %s", err.Error()))
+		return
+	}
+
 	data, err := json.Marshal(u.Metadata())
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -78,15 +120,6 @@ func UrlMetadataHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Par
 	w.Write(data)
 }
 
-func UrlAddMetadataHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	// u, err := reqUrl(r)
-	// if err != nil {
-	// 	w.WriteHeader(http.StatusBadRequest)
-	// 	io.WriteString(w, fmt.Sprintf("'%s' is not a valid url", r.FormValue("url")))
-	// 	return
-	// }
-}
-
 func ShutdownHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	stopCrawler <- true
 	w.Write([]byte("shutting down"))
@@ -95,6 +128,20 @@ func ShutdownHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 // HomeHandler renders the home page
 func HomeHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	renderTemplate(w, "index.html")
+}
+
+func UrlsViewHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	urls, err := ListUrls(appDB, 200, 0)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	err = templates.ExecuteTemplate(w, "urls.html", urls)
+	if err != nil {
+		logger.Println(err.Error())
+		return
+	}
 }
 
 // renderTemplate renders a template with the values of cfg.TemplateData

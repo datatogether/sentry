@@ -51,8 +51,9 @@ func main() {
 
 	r.POST("/seed", middleware(SeedUrlHandler))
 
+	r.GET("/urls", middleware(UrlsViewHandler))
 	r.GET("/url", middleware(UrlMetadataHandler))
-	r.POST("/url/meta", middleware(UrlAddMetadataHandler))
+	r.POST("/url/meta", middleware(UrlSetMetadataHandler))
 
 	r.GET("/mem", middleware(MemStatsHandler))
 	r.GET("/que", middleware(EnquedHandler))
