@@ -51,6 +51,16 @@ func SeedUrlHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 	}
 }
 
+func ArchiveUrlHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	// parsed, err := url.Parse(r.FormValue("url"))
+	// if err != nil {
+	// 	return err
+	// }
+
+	// u := &Url{Url: parsed, Host: parsed.Host}
+	// err = u.Read(db)
+}
+
 func UrlMetadataHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	reqUrl, err := reqUrl(r)
 	if err != nil {

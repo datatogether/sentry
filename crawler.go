@@ -75,7 +75,7 @@ func startCrawling() {
 
 			u.Hash = f.Hash
 
-			if u.ShouldSave() {
+			if u.ShouldPutS3() {
 				go func() {
 					if err := f.PutS3(); err != nil {
 						logger.Printf("[ERR] putting file to S3: %s - %s\n", u.Url.String(), err)

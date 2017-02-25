@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/url"
 	"time"
 
@@ -29,6 +30,65 @@ type Url struct {
 	Hash          string
 }
 
+// Archive
+func (u *Url) Archive() error {
+	if !u.ShouldEnqueueGet() {
+		// we've fetched this url recently, bail.
+		return nil
+	}
+
+	res, err := http.Get(u.Url.String())
+	if err != nil {
+		return err
+	}
+
+	return u.processResponse(res)
+}
+
+// processResponse
+func (u *Url) processResponse(res *http.Response) error {
+	// f, err := NewFileFromRes(u.Url.String(), res)
+	// if err != nil {
+	// 	logger.Printf("[ERR] generating response file: %s - %s\n", u.Url.String(), err)
+	// 	return
+	// }
+
+	// u.Hash = f.Hash
+
+	// if u.ShouldPutS3() {
+	// 	go func() {
+	// 		if err := f.PutS3(); err != nil {
+	// 			logger.Printf("[ERR] putting file to S3: %s - %s\n", u.Url.String(), err)
+	// 		}
+	// 	}()
+	// }
+
+	// // Process the body to find links
+	// doc, err := goquery.NewDocumentFromReader(f.Data)
+	// if err != nil {
+	// 	logger.Printf("[ERR] %s %s - %s\n", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
+	// 	return
+	// }
+
+	// u.Title = doc.Find("title").Text()
+	// u.Status = res.StatusCode
+	// u.ContentLength = res.ContentLength
+	// u.ContentType = res.Header.Get("Content-Type")
+	// u.Date = time.Now()
+	// u.Headers = rawHeadersSlice(res)
+	// links, err := u.DocLinks(doc)
+	// if err != nil {
+	// 	logger.Printf("[ERR] finding doc links: %s - %s\n", u.Url.String(), err)
+	// 	return
+	// }
+
+	// if err := u.Update(appDB); err != nil {
+	// 	fmt.Println("[ERR] updating url: %s - %s", u.Url.String(), err)
+	// 	return
+	// }
+	return nil
+}
+
 // ShouldFetch returns weather the url should be added to the queue for updating
 // should return true if the url is new, or if we haven't checked this url in a while
 func (u *Url) ShouldEnqueueGet() bool {
@@ -39,7 +99,7 @@ func (u *Url) ShouldEnqueueHead() bool {
 	return (u.Created == u.Updated || u.Date.IsZero() || time.Since(u.Updated) > cfg.StaleDuration()) && !enqued[u.Url.String()]
 }
 
-func (u *Url) ShouldSave() bool {
+func (u *Url) ShouldPutS3() bool {
 	return true
 }
 
@@ -92,6 +152,7 @@ func (u *Url) Update(db sqlQueryExecable) error {
 	return err
 }
 
+// Delete a url, should only do for erronious additions
 func (u *Url) Delete(db sqlQueryExecable) error {
 	_, err := db.Exec("delete from urls where url = $1", u.Url.String())
 	if err != nil {
@@ -115,11 +176,12 @@ func (u *Url) DocLinks(doc *goquery.Document) ([]*Link, error) {
 			return
 		}
 
-		// allocate normalized link
+		// create link
 		l := &Link{
 			Src: u,
 			Dst: &Url{
-				Url: NormalizeURL(address),
+				Url: address,
+				// Url: NormalizeURL(address),
 			},
 		}
 

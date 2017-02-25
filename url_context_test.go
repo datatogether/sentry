@@ -17,7 +17,7 @@ func TestUrlContextStorage(t *testing.T) {
 	c := &UrlContext{
 		Url:           _u,
 		ContributorId: "bal",
-		Context: map[string]interface{}{
+		Metadata: map[string]interface{}{
 			"test": "context",
 		},
 	}
@@ -27,7 +27,7 @@ func TestUrlContextStorage(t *testing.T) {
 		return
 	}
 
-	c.Context = map[string]interface{}{
+	c.Metadata = map[string]interface{}{
 		"test": "updated context",
 	}
 
@@ -42,7 +42,7 @@ func TestUrlContextStorage(t *testing.T) {
 		return
 	}
 
-	if c2.Context["test"].(string) != "updated context" {
+	if c2.Metadata["test"].(string) != "updated context" {
 		t.Errorf("context didn't save")
 		return
 	}

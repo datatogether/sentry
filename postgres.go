@@ -1,4 +1,4 @@
-// abstractions for connecting to lots of different postgres dbs
+// abstractions for working with postgres databases
 package main
 
 import (

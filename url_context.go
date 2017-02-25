@@ -8,33 +8,26 @@ import (
 	"time"
 )
 
+// UrlContext associates contextualizing metadata with a url
+// each "context" is associated with a userId to track their contribution
 type UrlContext struct {
 	Url           *url.URL
 	Created       time.Time
 	Updated       time.Time
 	Hash          string
 	ContributorId string
-	Context       map[string]interface{}
+	Metadata      map[string]interface{}
 }
 
-func (c *UrlContext) valid() error {
-	if c.Url.String() == "" {
-		return fmt.Errorf("Url is required")
-	}
-	if c.ContributorId == "" {
-		return fmt.Errorf("ContributorId is required")
-	}
-
-	return nil
-}
-
+// Read a context from the DB based on url & contributor ID
 func (c *UrlContext) Read(db sqlQueryable) error {
 	if err := c.valid(); err != nil {
 		return err
 	}
-	return c.UnmarshalSQL(db.QueryRow(fmt.Sprintf("select %s from context where url = $1 and contributor_id = $2", c.cols()), c.Url.String(), c.ContributorId))
+	return c.UnmarshalSQL(db.QueryRow(fmt.Sprintf("select %s from context where url = $1 and contributor_id = $2", urlContextCols()), c.Url.String(), c.ContributorId))
 }
 
+// Save inserts if no document exists, updates otherwise
 func (c *UrlContext) Save(db sqlQueryExecable) (err error) {
 	if err := c.valid(); err != nil {
 		return err
@@ -57,6 +50,7 @@ func (c *UrlContext) Save(db sqlQueryExecable) (err error) {
 	return err
 }
 
+// Delete a context
 func (c *UrlContext) Delete(db sqlQueryExecable) error {
 	if err := c.valid(); err != nil {
 		return err
@@ -66,18 +60,27 @@ func (c *UrlContext) Delete(db sqlQueryExecable) error {
 	return err
 }
 
-func (c UrlContext) cols() string {
-	return "url, contributor_id, created, updated, hash, meta"
+// valid checks for general valid-stateness, returns nil when valid
+func (c *UrlContext) valid() error {
+	if c.Url.String() == "" {
+		return fmt.Errorf("Url is required")
+	}
+	if c.ContributorId == "" {
+		return fmt.Errorf("ContributorId is required")
+	}
+
+	return nil
 }
 
+// UnmarshalSQL scans into the context
 func (c *UrlContext) UnmarshalSQL(row sqlScannable) error {
 	var (
 		rawurl, hash, contributorId string
 		created, updated            int64
-		contextBytes                []byte
+		metadataBytes               []byte
 	)
 
-	if err := row.Scan(&rawurl, &contributorId, &created, &updated, &hash, &contextBytes); err != nil {
+	if err := row.Scan(&rawurl, &contributorId, &created, &updated, &hash, &metadataBytes); err != nil {
 		if err == sql.ErrNoRows {
 			return ErrNotFound
 		}
@@ -90,10 +93,10 @@ func (c *UrlContext) UnmarshalSQL(row sqlScannable) error {
 		return err
 	}
 
-	var context map[string]interface{}
-	if contextBytes != nil {
-		context = map[string]interface{}{}
-		err = json.Unmarshal(contextBytes, &context)
+	var metadata map[string]interface{}
+	if metadataBytes != nil {
+		metadata = map[string]interface{}{}
+		err = json.Unmarshal(metadataBytes, &metadata)
 		if err != nil {
 			return err
 		}
@@ -105,14 +108,20 @@ func (c *UrlContext) UnmarshalSQL(row sqlScannable) error {
 		Created:       time.Unix(created, 0),
 		Updated:       time.Unix(updated, 0),
 		Hash:          hash,
-		Context:       context,
+		Metadata:      metadata,
 	}
 
 	return nil
 }
 
+// urlContextCols gives the expected order & selection of columns from the db
+func urlContextCols() string {
+	return "url, contributor_id, created, updated, hash, meta"
+}
+
+// SQLArgs gives context values as sql arguments
 func (c *UrlContext) SQLArgs() []interface{} {
-	contextBytes, err := json.Marshal(c.Context)
+	metadataBytes, err := json.Marshal(c.Metadata)
 	if err != nil {
 		panic(err)
 	}
@@ -123,6 +132,6 @@ func (c *UrlContext) SQLArgs() []interface{} {
 		c.Created.Unix(),
 		c.Updated.Unix(),
 		c.Hash,
-		contextBytes,
+		metadataBytes,
 	}
 }

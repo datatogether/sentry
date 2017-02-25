@@ -7,6 +7,7 @@ import (
 	"time"
 )
 
+// Domain is tracking information about a base URL
 type Domain struct {
 	Host          string
 	Created       time.Time
@@ -68,21 +69,6 @@ func (d *Domain) Delete(db sqlQueryExecable) error {
 	return err
 }
 
-func domainCols() string {
-	return "host, created, updated, stale_duration, crawl, last_alert_sent"
-}
-
-func (d *Domain) SQLArgs() []interface{} {
-	return []interface{}{
-		d.Host,
-		d.Created.Unix(),
-		d.Updated.Unix(),
-		d.StaleDuration / 1000000,
-		d.Crawl,
-		d.LastAlertSent.Unix(),
-	}
-}
-
 func (d *Domain) UnmarshalSQL(row sqlScannable) error {
 	var (
 		host                               string
@@ -107,4 +93,19 @@ func (d *Domain) UnmarshalSQL(row sqlScannable) error {
 	}
 
 	return nil
+}
+
+func domainCols() string {
+	return "host, created, updated, stale_duration, crawl, last_alert_sent"
+}
+
+func (d *Domain) SQLArgs() []interface{} {
+	return []interface{}{
+		d.Host,
+		d.Created.Unix(),
+		d.Updated.Unix(),
+		d.StaleDuration / 1000000,
+		d.Crawl,
+		d.LastAlertSent.Unix(),
+	}
 }
