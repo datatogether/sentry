@@ -1,14 +1,15 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/url"
 	"time"
 )
 
-type Context struct {
-	Url           *url.Url
+type UrlContext struct {
+	Url           *url.URL
 	Created       time.Time
 	Updated       time.Time
 	Hash          string
@@ -16,43 +17,67 @@ type Context struct {
 	Context       map[string]interface{}
 }
 
-func (c *Context) Read(db sqlQueryable) error {
+func (c *UrlContext) valid() error {
+	if c.Url.String() == "" {
+		return fmt.Errorf("Url is required")
+	}
+	if c.ContributorId == "" {
+		return fmt.Errorf("ContributorId is required")
+	}
+
+	return nil
+}
+
+func (c *UrlContext) Read(db sqlQueryable) error {
+	if err := c.valid(); err != nil {
+		return err
+	}
 	return c.UnmarshalSQL(db.QueryRow(fmt.Sprintf("select %s from context where url = $1 and contributor_id = $2", c.cols()), c.Url.String(), c.ContributorId))
 }
 
-func (c *Context) Save(db sqlQueryExecable) (err error) {
-	prev := &Context{Url: c.Url, ContributorId: c.ContributorId}
+func (c *UrlContext) Save(db sqlQueryExecable) (err error) {
+	if err := c.valid(); err != nil {
+		return err
+	}
+
+	prev := &UrlContext{Url: c.Url, ContributorId: c.ContributorId}
 	err = prev.Read(db)
 	if err == ErrNotFound {
 		// insert
 		c.Created = time.Now()
 		c.Updated = c.Created
 		_, err = db.Exec("insert into context values ($1, $2, $3, $4, $5, $6)", c.SQLArgs()...)
-	} else {
+	} else if err == nil {
 		c.Updated = time.Now()
-		_, err = db.Exec("update context set created = $2, updated = $3, hash = $4, contributor_id = $5, context = $6 where url = $1", c.SQLArgs()...)
+		_, err = db.Exec("update context set created = $3, updated = $4, hash = $5, meta = $6 where url = $1 and contributor_id = $2", c.SQLArgs()...)
+	} else {
+		return err
 	}
 
 	return err
 }
 
-func (c *Context) Delete(db sqlQueryExecable) error {
+func (c *UrlContext) Delete(db sqlQueryExecable) error {
+	if err := c.valid(); err != nil {
+		return err
+	}
+
 	_, err := db.Exec("delete from context where url = $1 and contributor_id = $2", c.Url.String(), c.ContributorId)
 	return err
 }
 
-func (c Context) cols() string {
-	return "url, created, updated, hash, contributor_id, context"
+func (c UrlContext) cols() string {
+	return "url, contributor_id, created, updated, hash, meta"
 }
 
-func (c *Context) UnmarshalSQL(row sqlScannable) error {
+func (c *UrlContext) UnmarshalSQL(row sqlScannable) error {
 	var (
 		rawurl, hash, contributorId string
 		created, updated            int64
 		contextBytes                []byte
 	)
 
-	if err := row.Scan(&rawurl, &created, &updated, &hash, &contributorId, &contextBytes); err != nil {
+	if err := row.Scan(&rawurl, &contributorId, &created, &updated, &hash, &contextBytes); err != nil {
 		if err == sql.ErrNoRows {
 			return ErrNotFound
 		}
@@ -74,30 +99,30 @@ func (c *Context) UnmarshalSQL(row sqlScannable) error {
 		}
 	}
 
-	*c = Context{
+	*c = UrlContext{
 		Url:           parsedUrl,
+		ContributorId: contributorId,
 		Created:       time.Unix(created, 0),
 		Updated:       time.Unix(updated, 0),
 		Hash:          hash,
-		ContributorId: contributorId,
 		Context:       context,
 	}
 
 	return nil
 }
 
-func (c *Context) SQLArgs() []interface{} {
-	contextBytes, err := json.Marshal()
+func (c *UrlContext) SQLArgs() []interface{} {
+	contextBytes, err := json.Marshal(c.Context)
 	if err != nil {
 		panic(err)
 	}
 
 	return []interface{}{
 		c.Url.String(),
+		c.ContributorId,
 		c.Created.Unix(),
 		c.Updated.Unix(),
 		c.Hash,
-		c.ContributorId,
 		contextBytes,
 	}
 }

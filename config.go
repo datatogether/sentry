@@ -3,16 +3,19 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/joho/godotenv"
 	"io/ioutil"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 )
 
-func StaleDuration() time.Duration {
-	return cfg.StaleDurationHours * time.Hour
-}
+// server modes
+const (
+	DEVELOP_MODE    = "develop"
+	PRODUCTION_MODE = "production"
+	TEST_MODE       = "test"
+)
 
 // config holds all configuration for the server. It pulls from two places:
 // a config.json file in the local directory, and then from environment variables
@@ -22,11 +25,11 @@ type config struct {
 	// port to listen on, will be read from PORT env variable if present.
 	Port string `json:"port"`
 	// url of postgres app db
-	AppDbUrl string `json:"APP_DB_URL"`
+	PostgresDbUrl string `json:"POSTGRES_DB_URL"`
 	// How long before a url is considered stale, in hours.
 	StaleDurationHours time.Duration `json:"stale_duration_hours"`
 	// crawl urls?
-	Crawl bool `json:"crawl"`
+	Crawl bool
 	// Weather or not the crawler respects robots.txt
 	Polite bool
 	// how long to wait between requests. one day this'll be dynamically
@@ -71,8 +74,12 @@ type config struct {
 	TemplateData map[string]interface{} `json:"template_data"`
 }
 
-// initConfig pulls configuration from
-func initConfig() (cfg *config, err error) {
+func (cfg *config) StaleDuration() time.Duration {
+	return cfg.StaleDurationHours * time.Hour
+}
+
+// initConfig pulls configuration from config.json
+func initConfig(mode string) (cfg *config, err error) {
 	cfg = &config{}
 	if _, err = os.Stat("config.json"); !os.IsNotExist(err) {
 		// read config data into a byte slice.
@@ -91,10 +98,13 @@ func initConfig() (cfg *config, err error) {
 		}
 	}
 
+	loadDotEnvFile(mode)
+
 	// override config settings with env settings, passing in the current configuration
 	// as the default. This has the effect of leaving the config.json value unchanged
 	// if the env variable is empty
 	cfg.Port = readEnvString("PORT", cfg.Port)
+	cfg.PostgresDbUrl = readEnvString("POSTGRES_DB_URL", cfg.PostgresDbUrl)
 	cfg.HttpAuthUsername = readEnvString("HTTP_AUTH_USERNAME", cfg.HttpAuthUsername)
 	cfg.HttpAuthPassword = readEnvString("HTTP_AUTH_PASSWORD", cfg.HttpAuthPassword)
 	cfg.AwsAccessKeyId = readEnvString("AWS_ACCESS_KEY_ID", cfg.AwsAccessKeyId)
@@ -107,7 +117,8 @@ func initConfig() (cfg *config, err error) {
 	}
 
 	err = requireConfigStrings(map[string]string{
-		"PORT": cfg.Port,
+		"PORT":            cfg.Port,
+		"POSTGRES_DB_URL": cfg.PostgresDbUrl,
 	})
 
 	return
@@ -117,18 +128,6 @@ func initConfig() (cfg *config, err error) {
 func readEnvString(key, def string) string {
 	if env := os.Getenv(key); env != "" {
 		return env
-	}
-	return def
-}
-
-func readEnvDuration(key string, def time.Duration) time.Duration {
-	if env := os.Getenv(key); env != "" {
-		i, err := strconv.ParseInt(env, 10, 64)
-		if err != nil {
-			fmt.Printf("error parsing time.Duration env variable '%s': %s\n", key, env)
-			return def
-		}
-		return time.Duration(i)
 	}
 	return def
 }
@@ -150,6 +149,20 @@ func requireConfigStrings(values map[string]string) error {
 	}
 
 	return nil
+}
+
+// checks for .env.[mode] file to read enviornment variables from if the file exists
+func loadDotEnvFile(mode string) {
+	if mode == "" {
+		mode = DEVELOP_MODE
+	}
+	fileName := fmt.Sprintf(".env.%s", mode)
+	if _, err := os.Stat(fileName); err == nil {
+		logger.Printf("loading %s", fileName)
+		if err := godotenv.Load(fileName); err != nil {
+			logger.Println(err.Error())
+		}
+	}
 }
 
 // outputs any notable settings to stdout

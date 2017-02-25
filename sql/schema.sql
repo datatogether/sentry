@@ -1,5 +1,7 @@
-DROP TABLE IF EXISTS urls, links, domains, alerts, supress_alerts;
+-- name: drop-all
+DROP TABLE IF EXISTS urls, links, domains, alerts, context, supress_alerts;
 
+-- name: create-domains
 CREATE TABLE domains (
 	host 						text PRIMARY KEY NOT NULL,
 	created 				integer NOT NULL,
@@ -9,6 +11,7 @@ CREATE TABLE domains (
 	last_alert_sent bigint default 0
 );
 
+-- name: create-urls
 CREATE TABLE urls (
 	url 						text PRIMARY KEY NOT NULL,
 	created 				integer NOT NULL,
@@ -27,6 +30,7 @@ CREATE TABLE urls (
 	hash 						text default ''
 );
 
+-- name: create-links
 CREATE TABLE links (
 	created 				integer NOT NULL,
 	updated 				integer NOT NULL,
@@ -35,13 +39,15 @@ CREATE TABLE links (
 	PRIMARY KEY 		(src, dst)
 );
 
+-- name: create-context
 CREATE TABLE context (
-	url 						text PRIMARY KEY NOT NULL references urls(url),
+	url 						text NOT NULL references urls(url),
+	contributor_id 	text NOT NULL,
 	created 				integer NOT NULL,
 	updated 				integer NOT NULL,
 	hash 						text NOT NULL,
-	contributor_id 	text NOT NULL,
-	context 				json
+	meta 						json,
+	UNIQUE 					(url, contributor_id)
 );
 
 -- for domains table later?

@@ -220,7 +220,7 @@ func startCrawling() {
 
 	// every half stale-duration, check to see if top levels need to be re-crawled for staleness
 	go func() {
-		c := time.After(time.Duration(StaleDuration() / 2))
+		c := time.After(time.Duration(cfg.StaleDuration() / 2))
 		<-c
 		seedDomains(appDB, q)
 	}()

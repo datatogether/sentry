@@ -28,7 +28,7 @@ var (
 
 func init() {
 	var err error
-	cfg, err = initConfig()
+	cfg, err = initConfig(os.Getenv("GOLANG_ENV"))
 	if err != nil {
 		// panic if the server is missing a vital configuration detail
 		panic(fmt.Errorf("server configuration error: %s", err.Error()))

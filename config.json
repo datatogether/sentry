@@ -6,7 +6,7 @@
 	"HTTP_AUTH_USERNAME" : "",
 	"HTTP_AUTH_PASSWORD" : "",
 
-	"APP_DB_URL" : "postgresql://b5@localhost:5432/sentry?sslmode=disable",
+	"POSTGRES_DB_URL" : "postgresql://b5@localhost:5432/sentry?sslmode=disable",
 
 	"crawl" : false,
 	"polite" : false,
