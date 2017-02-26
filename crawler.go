@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/fetchbot"
-	"github.com/PuerkitoBio/goquery"
 )
 
 var (
@@ -44,14 +43,7 @@ func startCrawling() {
 	// Handle GET requests for html responses, to parse the body and enqueue all links as HEAD requests.
 	mux.Response().Method("GET").ContentType("text/html").Handler(fetchbot.HandlerFunc(
 		func(ctx *fetchbot.Context, res *http.Response, err error) {
-			// TODO
-			// addr := NormalizeURL(ctx.Cmd.URL())
-			addr := ctx.Cmd.URL()
-
-			u := &Url{
-				Url:  addr,
-				Host: addr.Host,
-			}
+			u := &Url{Url: ctx.Cmd.URL()}
 			if err := u.Read(appDB); err != nil {
 				// logger.Printf("[ERR] url read error: %s - (%s) - %s\n", ctx.Cmd.URL(), NormalizeURL(ctx.Cmd.URL()), err)
 				logger.Printf("[ERR] url read error: %s - %s\n", u.Url.String(), err)
@@ -62,53 +54,14 @@ func startCrawling() {
 			delete(enqued, u.Url.String())
 			mu.Unlock()
 
-			// if err := u.ReadDomain(appDB); err != nil {
-			// 	fmt.Println("[ERR] reading domain for url: %s - %s", ctx.Cmd.URL().Host, err)
-			// 	return
-			// }
-
-			f, err := NewFileFromRes(u.Url.String(), res)
+			links, err := u.processGetResponse(appDB, res)
 			if err != nil {
-				logger.Printf("[ERR] generating response file: %s - %s\n", u.Url.String(), err)
-				return
-			}
-
-			u.Hash = f.Hash
-
-			if u.ShouldPutS3() {
-				go func() {
-					if err := f.PutS3(); err != nil {
-						logger.Printf("[ERR] putting file to S3: %s - %s\n", u.Url.String(), err)
-					}
-				}()
-			}
-
-			// Process the body to find links
-			doc, err := goquery.NewDocumentFromReader(f.Data)
-			if err != nil {
-				logger.Printf("[ERR] %s %s - %s\n", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
-				return
-			}
-
-			u.Title = doc.Find("title").Text()
-			u.Status = res.StatusCode
-			u.ContentLength = res.ContentLength
-			u.ContentType = res.Header.Get("Content-Type")
-			u.Date = time.Now()
-			u.Headers = rawHeadersSlice(res)
-			links, err := u.DocLinks(doc)
-			if err != nil {
-				logger.Printf("[ERR] finding doc links: %s - %s\n", u.Url.String(), err)
-				return
-			}
-
-			if err := u.Update(appDB); err != nil {
-				fmt.Println("[ERR] updating url: %s - %s", u.Url.String(), err)
+				fmt.Println(err.Error())
 				return
 			}
 
 			// Enqueue all links as HEAD requests
-			if err := enqueueDstLinks(appDB, links, ctx); err != nil {
+			if err := enqueueDstLinks(links, ctx); err != nil {
 				fmt.Println(err.Error())
 			}
 		}))
@@ -117,14 +70,9 @@ func startCrawling() {
 	// to crawl links from other hosts.
 	mux.Response().Method("HEAD").ContentType("text/html").Handler(fetchbot.HandlerFunc(
 		func(ctx *fetchbot.Context, res *http.Response, err error) {
-			// Normalize the host right out the gate
-			// TODO - disabled for now, ask about this for matching others
-			// addr := NormalizeURL(ctx.Cmd.URL())
 			addr := ctx.Cmd.URL()
-
 			u := &Url{
 				Url:     addr,
-				Host:    addr.Host,
 				Headers: rawHeadersSlice(res),
 				// TODO HeadersTook: 0,
 				// TODO DownloadTook: 0,
@@ -285,31 +233,8 @@ func enqueueDomainGet(u *Url, ctx *fetchbot.Context) error {
 	return nil
 }
 
-func enqueueDstLinks(db sqlQueryExecable, links []*Link, ctx *fetchbot.Context) error {
+func enqueueDstLinks(links []*Link, ctx *fetchbot.Context) error {
 	for _, l := range links {
-		// Check to see if url exists, creating if not
-		if err := l.Dst.Read(db); err != nil {
-			if err == ErrNotFound {
-				if err := l.Dst.Insert(db); err != nil {
-					return err
-				}
-			} else {
-				return err
-			}
-		}
-
-		// confirm link from src to dest exists,
-		// creating if not
-		if err := l.Read(db); err != nil {
-			if err == ErrNotFound {
-				if err := l.Insert(db); err != nil {
-					return err
-				}
-			} else {
-				return err
-			}
-		}
-
 		if l.Dst.ShouldEnqueueHead() {
 			mu.Lock()
 			if _, err := ctx.Q.SendStringHead(l.Dst.Url.String()); err != nil {

@@ -59,6 +59,8 @@ func main() {
 	r.GET("/que", middleware(EnquedHandler))
 	r.POST("/shutdown", middleware(ShutdownHandler))
 
+	r.POST("/archive", middleware(ArchiveUrlHandler))
+
 	// serve static content from public directory
 	r.ServeFiles("/css/*filepath", http.Dir("public/css"))
 	r.ServeFiles("/js/*filepath", http.Dir("public/js"))

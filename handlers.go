@@ -52,13 +52,19 @@ func SeedUrlHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 }
 
 func ArchiveUrlHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	// parsed, err := url.Parse(r.FormValue("url"))
-	// if err != nil {
-	// 	return err
-	// }
+	parsed, err := url.Parse(r.FormValue("url"))
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		io.WriteString(w, fmt.Sprintf("parse url '%s' error: %s", r.FormValue("url"), err.Error()))
+		return
+	}
 
-	// u := &Url{Url: parsed, Host: parsed.Host}
-	// err = u.Read(db)
+	u := &Url{Url: parsed}
+	if err := u.Archive(appDB); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		io.WriteString(w, fmt.Sprintf("parse url '%s' error: %s", r.FormValue("url"), err.Error()))
+		return
+	}
 }
 
 func UrlMetadataHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {

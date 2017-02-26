@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
@@ -17,7 +18,6 @@ type Url struct {
 	Created       time.Time
 	Updated       time.Time
 	Date          time.Time
-	Host          string
 	Status        int
 	ContentType   string
 	ContentLength int64
@@ -30,63 +30,124 @@ type Url struct {
 	Hash          string
 }
 
-// Archive
-func (u *Url) Archive() error {
-	if !u.ShouldEnqueueGet() {
-		// we've fetched this url recently, bail.
-		return nil
+// Archive GET's a url and all linked urls
+func (u *Url) Archive(db sqlQueryExecable) error {
+	if err := u.Read(db); err != nil {
+		if err == ErrNotFound {
+			if err := u.Insert(db); err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
 	}
 
-	res, err := http.Get(u.Url.String())
+	links, err := u.Get(db)
 	if err != nil {
 		return err
 	}
 
-	return u.processResponse(res)
+	go func(db sqlQueryExecable, links []*Link) {
+		// GET each destination link from this page in parallel
+		for _, l := range links {
+			go func(db sqlQueryExecable, u *Url) {
+				if _, err := u.Get(db); err != nil {
+					logger.Println(err.Error())
+				}
+				// need a sleep here to avoid bombing server with requests
+				time.Sleep(cfg.CrawlDelaySeconds)
+			}(db, l.Dst)
+		}
+	}(db, links)
+
+	return err
+}
+
+// Issue a GET request to this URL if it's eligible for one
+func (u *Url) Get(db sqlQueryExecable) (links []*Link, err error) {
+	// TODO - should screen to keep GET's within whitelisted domains
+	if !u.ShouldEnqueueGet() {
+		// we've fetched this url recently, bail.
+		return u.ReadDstLinks(db)
+	}
+
+	res, err := http.Get(u.Url.String())
+	if err != nil {
+		return nil, err
+	}
+
+	return u.processGetResponse(db, res)
 }
 
 // processResponse
-func (u *Url) processResponse(res *http.Response) error {
-	// f, err := NewFileFromRes(u.Url.String(), res)
-	// if err != nil {
-	// 	logger.Printf("[ERR] generating response file: %s - %s\n", u.Url.String(), err)
-	// 	return
-	// }
+func (u *Url) processGetResponse(db sqlQueryExecable, res *http.Response) (links []*Link, err error) {
+	f, err := NewFileFromRes(u.Url.String(), res)
+	if err != nil {
+		// logger.Printf("[ERR] generating response file: %s - %s\n", u.Url.String(), err)
+		return
+	}
 
-	// u.Hash = f.Hash
+	// universally recorded responses:
+	u.Status = res.StatusCode
+	u.ContentLength = res.ContentLength
+	u.ContentType = res.Header.Get("Content-Type")
+	u.Date = time.Now()
+	u.Headers = rawHeadersSlice(res)
+	u.Hash = f.Hash
 
-	// if u.ShouldPutS3() {
-	// 	go func() {
-	// 		if err := f.PutS3(); err != nil {
-	// 			logger.Printf("[ERR] putting file to S3: %s - %s\n", u.Url.String(), err)
-	// 		}
-	// 	}()
-	// }
+	if u.ShouldPutS3() {
+		go func() {
+			if err := f.PutS3(); err != nil {
+				logger.Printf("[ERR] putting file to S3: %s - %s\n", u.Url.String(), err)
+			}
+		}()
+	}
 
-	// // Process the body to find links
-	// doc, err := goquery.NewDocumentFromReader(f.Data)
-	// if err != nil {
-	// 	logger.Printf("[ERR] %s %s - %s\n", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
-	// 	return
-	// }
+	// additional processing for html documents
+	if strings.Contains(strings.ToLower(u.ContentType), "text/html") {
+		var doc *goquery.Document
+		// Process the body to find links
+		doc, err = goquery.NewDocumentFromReader(f.Data)
+		if err != nil {
+			return
+		}
 
-	// u.Title = doc.Find("title").Text()
-	// u.Status = res.StatusCode
-	// u.ContentLength = res.ContentLength
-	// u.ContentType = res.Header.Get("Content-Type")
-	// u.Date = time.Now()
-	// u.Headers = rawHeadersSlice(res)
-	// links, err := u.DocLinks(doc)
-	// if err != nil {
-	// 	logger.Printf("[ERR] finding doc links: %s - %s\n", u.Url.String(), err)
-	// 	return
-	// }
+		u.Title = doc.Find("title").Text()
+		links, err = u.ExtractDocLinks(db, doc)
+		if err != nil {
+			return
+		}
+	}
 
-	// if err := u.Update(appDB); err != nil {
-	// 	fmt.Println("[ERR] updating url: %s - %s", u.Url.String(), err)
-	// 	return
-	// }
-	return nil
+	err = u.Update(db)
+	if err != nil {
+		return
+	}
+
+	return links, nil
+}
+
+func (u *Url) ReadDstLinks(db sqlQueryExecable) ([]*Link, error) {
+	res, err := db.Query("select urls.url, urls.created, urls.updated, last_get, status, content_type, content_length, title, id, headers_took, download_took, headers, meta, hash from urls, links where links.src = $1 and links.dst = urls.url", u.Url.String())
+	// res, err := db.Query(fmt.Sprintf("select %s from links where src = $1", linkCols()), u.Url.String())
+	if err != nil {
+		return nil, err
+	}
+
+	links := make([]*Link, 0)
+	for res.Next() {
+		dst := &Url{}
+		if err := dst.UnmarshalSQL(res); err != nil {
+			return nil, err
+		}
+		l := &Link{
+			Src: u,
+			Dst: dst,
+		}
+		links = append(links, l)
+	}
+
+	return links, nil
 }
 
 // ShouldFetch returns weather the url should be added to the queue for updating
@@ -103,52 +164,42 @@ func (u *Url) ShouldPutS3() bool {
 	return true
 }
 
+// Read url from db
 func (u *Url) Read(db sqlQueryable) error {
 	if u.Url != nil {
 		row := db.QueryRow(fmt.Sprintf("select %s from urls where url = $1", urlCols()), u.Url.String())
 		return u.UnmarshalSQL(row)
 	}
-
 	return ErrNotFound
 }
 
-// func (u *Url) ReadDomain(db sqlQueryable) error {
-// 	if u.Url == nil {
-// 		return ErrNotFound
-// 	}
-
-// 	d := &Domain{
-// 		Host: u.Url.Host,
-// 	}
-
-// 	if err := d.Read(db); err != nil {
-// 		return err
-// 	}
-
-// 	u.Host = d
-// 	return nil
-// }
-
+// Insert (create)
 func (u *Url) Insert(db sqlQueryExecable) error {
-	u.Created = time.Now()
+	u.Created = time.Now().Round(time.Second)
 	u.Updated = u.Created
-	u.Url = NormalizeURL(u.Url)
-	u.Host = u.Url.Host
 	u.Id = uuid.New()
-	_, err := db.Exec(fmt.Sprintf("insert into urls (%s) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)", urlCols()), u.SQLArgs()...)
+	_, err := db.Exec(fmt.Sprintf("insert into urls (%s) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)", urlCols()), u.SQLArgs()...)
+	if err != nil {
+		logger.Println(err.Error())
+		logger.Println(u.SQLArgs())
+	}
 	return err
 }
 
+// Update url db entry
 func (u *Url) Update(db sqlQueryExecable) error {
-	u.Updated = time.Now()
-	u.Url = NormalizeURL(u.Url)
+	u.Updated = time.Now().Round(time.Second)
 	if u.ContentLength < -1 {
 		u.ContentLength = -1
 	}
 	if u.Status < -1 {
 		u.Status = -1
 	}
-	_, err := db.Exec("update urls set created=$2, updated=$3, last_get=$4, host=$5, status=$6, content_type=$7, content_length=$8, title=$9, id=$10, headers_took=$11, download_took=$12, headers=$13, meta=$14, hash=$15 where url = $1", u.SQLArgs()...)
+	_, err := db.Exec("update urls set created=$2, updated=$3, last_get=$4, status=$5, content_type=$6, content_length=$7, title=$8, id=$9, headers_took=$10, download_took=$11, headers=$12, meta=$13, hash=$14 where url = $1", u.SQLArgs()...)
+	if err != nil {
+		logger.Println(err.Error())
+		logger.Println(u.SQLArgs())
+	}
 	return err
 }
 
@@ -161,28 +212,52 @@ func (u *Url) Delete(db sqlQueryExecable) error {
 	return err
 }
 
-// DocLinks extracts a page's linked documents
-// extracts all a[href] links from a qoquery document.
-func (u *Url) DocLinks(doc *goquery.Document) ([]*Link, error) {
+// ExtractDocLinks extracts & stores a page's linked documents
+// by selecting all a[href] links from a given qoquery document, using
+// the receiver *Url as the base
+func (u *Url) ExtractDocLinks(db sqlQueryExecable, doc *goquery.Document) ([]*Link, error) {
 	links := make([]*Link, 0)
 	// generate a list of normalized links
 	doc.Find("a[href]").Each(func(i int, s *goquery.Selection) {
 		val, _ := s.Attr("href")
 
-		// Resolve address to source url
+		// Resolve destination address to source url
 		address, err := u.Url.Parse(val)
 		if err != nil {
 			logger.Printf("error: resolve URL %s - %s\n", val, err)
 			return
 		}
 
+		dst := &Url{Url: address}
+		// Check to see if url exists, creating if not
+		if err = dst.Read(db); err != nil {
+			if err == ErrNotFound {
+				if err = dst.Insert(db); err != nil {
+					logger.Println(err.Error())
+					return
+				}
+			} else {
+				return
+			}
+		}
+
 		// create link
 		l := &Link{
 			Src: u,
-			Dst: &Url{
-				Url: address,
-				// Url: NormalizeURL(address),
-			},
+			Dst: dst,
+		}
+
+		// confirm link from src to dest exists,
+		// creating if not
+		if err = l.Read(db); err != nil {
+			if err == ErrNotFound {
+				if err = l.Insert(db); err != nil {
+					logger.Println(err.Error())
+					return
+				}
+			} else {
+				return
+			}
 		}
 
 		links = append(links, l)
@@ -192,23 +267,23 @@ func (u *Url) DocLinks(doc *goquery.Document) ([]*Link, error) {
 }
 
 func urlCols() string {
-	return "url, created, updated, last_get, host, status, content_type, content_length, title, id, headers_took, download_took, headers, meta, hash"
+	return "url, created, updated, last_get, status, content_type, content_length, title, id, headers_took, download_took, headers, meta, hash"
 }
 
 func (u *Url) UnmarshalSQL(row sqlScannable) error {
 	var (
-		rawurl, host, mime, title, id, hash string
-		created, updated, lastGet, length   int64
-		headersTook, downloadTook           int
-		headerBytes, metaBytes              []byte
-		status                              int
+		rawurl, mime, title, id, hash     string
+		created, updated, lastGet, length int64
+		headersTook, downloadTook         int
+		headerBytes, metaBytes            []byte
+		status                            int
 	)
 
-	if err := row.Scan(&rawurl, &created, &updated, &lastGet, &host, &status, &mime, &length, &title, &id, &headersTook, &downloadTook, &headerBytes, &metaBytes, &hash); err != nil {
+	if err := row.Scan(&rawurl, &created, &updated, &lastGet, &status, &mime, &length, &title, &id, &headersTook, &downloadTook, &headerBytes, &metaBytes, &hash); err != nil {
 		if err == sql.ErrNoRows {
 			return ErrNotFound
 		}
-		logger.Println(err)
+		logger.Println(err.Error())
 		return err
 	}
 
@@ -240,7 +315,6 @@ func (u *Url) UnmarshalSQL(row sqlScannable) error {
 		Updated:       time.Unix(updated, 0),
 		Date:          time.Unix(lastGet, 0),
 		Url:           parsedUrl,
-		Host:          host,
 		Status:        status,
 		ContentType:   mime,
 		ContentLength: length,
@@ -276,7 +350,6 @@ func (u *Url) SQLArgs() []interface{} {
 		u.Created.Unix(),
 		u.Updated.Unix(),
 		t,
-		u.Host,
 		u.Status,
 		u.ContentType,
 		u.ContentLength,

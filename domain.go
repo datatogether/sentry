@@ -25,11 +25,7 @@ func (d *Domain) Url(db sqlQueryExecable) (*Url, error) {
 		return nil, err
 	}
 
-	u := &Url{
-		Url:  addr,
-		Host: addr.Host,
-	}
-
+	u := &Url{Url: addr}
 	if err := u.Read(db); err != nil {
 		if err == ErrNotFound {
 			if err := u.Insert(db); err != nil {

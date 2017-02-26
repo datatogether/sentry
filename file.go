@@ -71,12 +71,21 @@ func (f *File) PutS3() error {
 		Credentials: credentials.NewStaticCredentials(cfg.AwsAccessKeyId, cfg.AwsSecretAccessKey, ""),
 	}))
 
-	_, err = svc.PutObject(&s3.PutObjectInput{
-		ACL:    aws.String(s3.BucketCannedACLPublicRead),
+	// check to see if hash exists
+	_, err = svc.HeadObject(&s3.HeadObjectInput{
 		Bucket: aws.String(cfg.AwsS3BucketName),
 		Key:    aws.String(f.s3Path(filename)),
-		Body:   bytes.NewReader(f.Data.Bytes()),
 	})
+
+	if err != nil {
+		logger.Printf("S3 PUT: %s", f.s3Path(filename))
+		_, err = svc.PutObject(&s3.PutObjectInput{
+			ACL:    aws.String(s3.BucketCannedACLPublicRead),
+			Bucket: aws.String(cfg.AwsS3BucketName),
+			Key:    aws.String(f.s3Path(filename)),
+			Body:   bytes.NewReader(f.Data.Bytes()),
+		})
+	}
 
 	return err
 }
