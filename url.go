@@ -175,6 +175,44 @@ func (u *Url) ReadDstLinks(db sqlQueryable) ([]*Link, error) {
 	return links, nil
 }
 
+func (u *Url) InboundLinks(db sqlQueryable) ([]*Link, error) {
+	res, err := db.Query(fmt.Sprintf("select %s from links where dst = $1", linkCols()), u.Url.String())
+	if err != nil {
+		return nil, err
+	}
+	defer res.Close()
+
+	links := make([]*Link, 0)
+	for res.Next() {
+		l := &Link{}
+		if err := l.UnmarshalSQL(res); err != nil {
+			return nil, err
+		}
+		links = append(links, l)
+	}
+
+	return links, nil
+}
+
+func (u *Url) OutboundLinks(db sqlQueryable) ([]*Link, error) {
+	res, err := db.Query(fmt.Sprintf("select %s from links where src = $1", linkCols()), u.Url.String())
+	if err != nil {
+		return nil, err
+	}
+	defer res.Close()
+
+	links := make([]*Link, 0)
+	for res.Next() {
+		l := &Link{}
+		if err := l.UnmarshalSQL(res); err != nil {
+			return nil, err
+		}
+		links = append(links, l)
+	}
+
+	return links, nil
+}
+
 func (u *Url) ReadContexts(db sqlQueryable) ([]*UrlContext, error) {
 	res, err := db.Query(fmt.Sprintf("select %s from context where context.url = $1", urlContextCols()), u.Url.String())
 	if err != nil {
@@ -423,16 +461,34 @@ func (u *Url) Metadata(db sqlQueryable) (*Meta, error) {
 		return nil, err
 	}
 
+	ibl, err := u.InboundLinks(db)
+	if err != nil {
+		return nil, err
+	}
+
+	obl, err := u.OutboundLinks(db)
+	if err != nil {
+		return nil, err
+	}
+
+	var sha string
+	if len(u.Hash) > 4 {
+		sha = u.Hash[3:]
+	}
+
 	return &Meta{
-		Url:          u.Url.String(),
-		Date:         u.Date,
-		HeadersTook:  u.HeadersTook,
-		Id:           u.Id,
-		Status:       u.Status,
-		RawHeaders:   u.Headers,
-		Headers:      u.HeadersMap(),
-		DownloadTook: u.DownloadTook,
-		Multihash:    u.Hash,
-		Contexts:     contexts,
+		Url:           u.Url.String(),
+		Date:          u.Date,
+		HeadersTook:   u.HeadersTook,
+		Id:            u.Id,
+		Status:        u.Status,
+		RawHeaders:    u.Headers,
+		Headers:       u.HeadersMap(),
+		DownloadTook:  u.DownloadTook,
+		Sha256:        sha,
+		Multihash:     u.Hash,
+		Contexts:      contexts,
+		InboundLinks:  ibl,
+		OutboundLinks: obl,
 	}, nil
 }

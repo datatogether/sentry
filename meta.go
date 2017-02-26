@@ -16,6 +16,6 @@ type Meta struct {
 	Sha256        string            `json:"sha256"`
 	Multihash     string            `json:"multihash"`
 	Contexts      []*UrlContext     `json:"context"`
-	InboundLinks  []*Link           `json:"inboundLinks"`
-	OutboundLinks []*Link           `json:"outboundLinks"`
+	InboundLinks  []*Link           `json:"inboundLinks,omitempty"`
+	OutboundLinks []*Link           `json:"outboundLinks,omitempty"`
 }
