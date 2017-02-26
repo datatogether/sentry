@@ -127,12 +127,37 @@ func (u *Url) processGetResponse(db sqlQueryExecable, res *http.Response) (links
 	return links, nil
 }
 
-func (u *Url) ReadDstLinks(db sqlQueryExecable) ([]*Link, error) {
+func (u *Url) ReadSrcLinks(db sqlQueryable) ([]*Link, error) {
+	res, err := db.Query("select urls.url, urls.created, urls.updated, last_get, status, content_type, content_length, title, id, headers_took, download_took, headers, meta, hash from urls, links where links.dst = $1 and links.src = urls.url", u.Url.String())
+	// res, err := db.Query(fmt.Sprintf("select %s from links where src = $1", linkCols()), u.Url.String())
+	if err != nil {
+		return nil, err
+	}
+	defer res.Close()
+
+	links := make([]*Link, 0)
+	for res.Next() {
+		src := &Url{}
+		if err := src.UnmarshalSQL(res); err != nil {
+			return nil, err
+		}
+		l := &Link{
+			Src: src,
+			Dst: u,
+		}
+		links = append(links, l)
+	}
+
+	return links, nil
+}
+
+func (u *Url) ReadDstLinks(db sqlQueryable) ([]*Link, error) {
 	res, err := db.Query("select urls.url, urls.created, urls.updated, last_get, status, content_type, content_length, title, id, headers_took, download_took, headers, meta, hash from urls, links where links.src = $1 and links.dst = urls.url", u.Url.String())
 	// res, err := db.Query(fmt.Sprintf("select %s from links where src = $1", linkCols()), u.Url.String())
 	if err != nil {
 		return nil, err
 	}
+	defer res.Close()
 
 	links := make([]*Link, 0)
 	for res.Next() {
@@ -148,6 +173,25 @@ func (u *Url) ReadDstLinks(db sqlQueryExecable) ([]*Link, error) {
 	}
 
 	return links, nil
+}
+
+func (u *Url) ReadContexts(db sqlQueryable) ([]*UrlContext, error) {
+	res, err := db.Query(fmt.Sprintf("select %s from context where context.url = $1", urlContextCols()), u.Url.String())
+	if err != nil {
+		return nil, err
+	}
+	defer res.Close()
+
+	contexts := make([]*UrlContext, 0)
+	for res.Next() {
+		c := &UrlContext{}
+		if err := c.UnmarshalSQL(res); err != nil {
+			return nil, err
+		}
+		contexts = append(contexts, c)
+	}
+
+	return contexts, nil
 }
 
 // ShouldFetch returns weather the url should be added to the queue for updating
@@ -373,7 +417,12 @@ func (u *Url) HeadersMap() (headers map[string]string) {
 	return
 }
 
-func (u *Url) Metadata() *Meta {
+func (u *Url) Metadata(db sqlQueryable) (*Meta, error) {
+	contexts, err := u.ReadContexts(db)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Meta{
 		Url:          u.Url.String(),
 		Date:         u.Date,
@@ -383,7 +432,7 @@ func (u *Url) Metadata() *Meta {
 		RawHeaders:   u.Headers,
 		Headers:      u.HeadersMap(),
 		DownloadTook: u.DownloadTook,
-		// Sha256:       u.Sha256,
-		Multihash: u.Hash,
-	}
+		Multihash:    u.Hash,
+		Contexts:     contexts,
+	}, nil
 }

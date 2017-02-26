@@ -36,6 +36,10 @@ func (c *UrlContext) Save(db sqlQueryExecable) (err error) {
 	prev := &UrlContext{Url: c.Url, ContributorId: c.ContributorId}
 	err = prev.Read(db)
 	if err == ErrNotFound {
+		if err := c.ReadCurrentHash(db); err != nil {
+			return err
+		}
+
 		// insert
 		c.Created = time.Now()
 		c.Updated = c.Created
@@ -69,6 +73,51 @@ func (c *UrlContext) valid() error {
 		return fmt.Errorf("ContributorId is required")
 	}
 
+	return nil
+}
+
+func (c *UrlContext) ReadCurrentHash(db sqlQueryable) error {
+	var hash string
+
+	err := db.QueryRow("select hash from urls where url = $1", c.Url.String()).Scan(&hash)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return ErrNotFound
+		}
+		return err
+	}
+
+	c.Hash = hash
+
+	return nil
+}
+
+// TODO - Storing urls as actual urls is a pain
+func (c *UrlContext) UnmarshalJSON(data []byte) error {
+	d := struct {
+		Url           string
+		Created       time.Time
+		Updated       time.Time
+		Hash          string
+		ContributorId string
+		Metadata      map[string]interface{}
+	}{}
+	if err := json.Unmarshal(data, &d); err != nil {
+		return err
+	}
+	u, err := url.Parse(d.Url)
+	if err != nil {
+		return err
+	}
+
+	*c = UrlContext{
+		Url:           u,
+		Created:       d.Created,
+		Updated:       d.Updated,
+		Hash:          d.Hash,
+		ContributorId: d.ContributorId,
+		Metadata:      d.Metadata,
+	}
 	return nil
 }
 

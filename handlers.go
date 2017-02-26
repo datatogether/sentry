@@ -82,7 +82,14 @@ func UrlMetadataHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Par
 		return
 	}
 
-	data, err := json.MarshalIndent(u.Metadata(), "", "  ")
+	meta, err := u.Metadata(appDB)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		io.WriteString(w, fmt.Sprintf("read url '%s' err: %s", reqUrl.String(), err.Error()))
+		return
+	}
+
+	data, err := json.MarshalIndent(meta, "", "  ")
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		io.WriteString(w, fmt.Sprintf("encode json error: %s", err.Error()))
@@ -92,6 +99,47 @@ func UrlMetadataHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Par
 	w.WriteHeader(http.StatusOK)
 	w.Header().Add("Content-Type", "application/json")
 	w.Write(data)
+}
+
+func SaveUrlContextHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	uc := &UrlContext{}
+	if err := json.NewDecoder(r.Body).Decode(uc); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		io.WriteString(w, fmt.Sprintf("json formatting error: %s", err.Error()))
+		return
+	}
+	r.Body.Close()
+
+	if err := uc.Save(appDB); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		io.WriteString(w, fmt.Sprintf("error saving context: %s", err.Error()))
+		return
+	}
+
+	w.WriteHeader(200)
+	w.Header().Add("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(uc); err != nil {
+		logger.Println(err.Error())
+	}
+}
+
+func DeleteUrlContextHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	uc := &UrlContext{}
+	if err := json.NewDecoder(r.Body).Decode(uc); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		io.WriteString(w, fmt.Sprintf("json formatting error: %s", err.Error()))
+		return
+	}
+	r.Body.Close()
+
+	if err := uc.Delete(appDB); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		io.WriteString(w, fmt.Sprintf("error saving context: %s", err.Error()))
+		return
+	}
+
+	w.WriteHeader(200)
+	io.WriteString(w, "url deleted")
 }
 
 func UrlSetMetadataHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
@@ -124,7 +172,13 @@ func UrlSetMetadataHandler(w http.ResponseWriter, r *http.Request, _ httprouter.
 		return
 	}
 
-	data, err := json.Marshal(u.Metadata())
+	m, err := u.Metadata(appDB)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		io.WriteString(w, fmt.Sprintf("url metadata error: %s", err.Error()))
+		return
+	}
+	data, err := json.Marshal(m)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		io.WriteString(w, fmt.Sprintf("encode json error: %s", err.Error()))

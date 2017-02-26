@@ -55,6 +55,9 @@ func main() {
 	r.GET("/url", middleware(UrlMetadataHandler))
 	r.POST("/url/meta", middleware(UrlSetMetadataHandler))
 
+	r.POST("/context", middleware(SaveUrlContextHandler))
+	r.DELETE("/context", middleware(DeleteUrlContextHandler))
+
 	r.GET("/mem", middleware(MemStatsHandler))
 	r.GET("/que", middleware(EnquedHandler))
 	r.POST("/shutdown", middleware(ShutdownHandler))
