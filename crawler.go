@@ -43,15 +43,15 @@ func startCrawling() {
 	// Handle GET requests for html responses, to parse the body and enqueue all links as HEAD requests.
 	mux.Response().Method("GET").ContentType("text/html").Handler(fetchbot.HandlerFunc(
 		func(ctx *fetchbot.Context, res *http.Response, err error) {
-			u := &Url{Url: ctx.Cmd.URL()}
+			u := &Url{Url: ctx.Cmd.URL().String()}
 			if err := u.Read(appDB); err != nil {
 				// logger.Printf("[ERR] url read error: %s - (%s) - %s\n", ctx.Cmd.URL(), NormalizeURL(ctx.Cmd.URL()), err)
-				logger.Printf("[ERR] url read error: %s - %s\n", u.Url.String(), err)
+				logger.Printf("[ERR] url read error: %s - %s\n", u.Url, err)
 				return
 			}
 
 			mu.Lock()
-			delete(enqued, u.Url.String())
+			delete(enqued, u.Url)
 			mu.Unlock()
 
 			links, err := u.processGetResponse(appDB, res)
@@ -72,14 +72,14 @@ func startCrawling() {
 		func(ctx *fetchbot.Context, res *http.Response, err error) {
 			addr := ctx.Cmd.URL()
 			u := &Url{
-				Url:     addr,
+				Url:     addr.String(),
 				Headers: rawHeadersSlice(res),
 				// TODO HeadersTook: 0,
 				// TODO DownloadTook: 0,
 			}
 
 			mu.Lock()
-			enqued[u.Url.String()] = false
+			enqued[u.Url] = false
 			mu.Unlock()
 
 			if err := u.Read(appDB); err != nil {
@@ -197,11 +197,11 @@ func seedDomains(db sqlQueryExecable, q *fetchbot.Queue) error {
 		// try to read a list of unfetched known urls
 		if ufd, err := UnfetchedDomainUrls(db, d.Host); err == nil || len(ufd) == 0 {
 			for _, u := range ufd {
-				_, err = q.SendStringGet(u.Url.String())
+				_, err = q.SendStringGet(u.Url)
 				if err != nil {
 					return err
 				}
-				enqued[u.Url.String()] = true
+				enqued[u.Url] = true
 			}
 		} //else {
 
@@ -210,8 +210,8 @@ func seedDomains(db sqlQueryExecable, q *fetchbot.Queue) error {
 			fmt.Println(err)
 			return err
 		}
-		enqued[u.Url.String()] = true
-		_, err = q.SendStringGet(u.Url.String())
+		enqued[u.Url] = true
+		_, err = q.SendStringGet(u.Url)
 		if err != nil {
 			return err
 		}
@@ -222,10 +222,10 @@ func seedDomains(db sqlQueryExecable, q *fetchbot.Queue) error {
 
 func enqueueDomainGet(u *Url, ctx *fetchbot.Context) error {
 	if u.ShouldEnqueueGet() {
-		_, err := ctx.Q.SendStringGet(u.Url.String())
+		_, err := ctx.Q.SendStringGet(u.Url)
 		if err == nil {
 			mu.Lock()
-			enqued[u.Url.String()] = true
+			enqued[u.Url] = true
 			mu.Unlock()
 		}
 		return err
@@ -237,13 +237,13 @@ func enqueueDstLinks(links []*Link, ctx *fetchbot.Context) error {
 	for _, l := range links {
 		if l.Dst.ShouldEnqueueHead() {
 			mu.Lock()
-			if _, err := ctx.Q.SendStringHead(l.Dst.Url.String()); err != nil {
-				fmt.Printf("error: enqueue head %s - %s\n", l.Dst.Url.String(), err)
+			if _, err := ctx.Q.SendStringHead(l.Dst.Url); err != nil {
+				fmt.Printf("error: enqueue head %s - %s\n", l.Dst.Url, err)
 			} else {
 				// at this point the destination has been added for a HEAD request.
 				// dup[u.String()] = true
 			}
-			enqued[l.Dst.Url.String()] = true
+			enqued[l.Dst.Url] = true
 			mu.Unlock()
 		}
 	}

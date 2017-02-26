@@ -3,7 +3,6 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"net/url"
 
 	"time"
 )
@@ -18,7 +17,7 @@ type Link struct {
 func (l *Link) Read(db sqlQueryable) error {
 	var row *sql.Row
 	if l.Src != nil && l.Dst != nil {
-		row = db.QueryRow(fmt.Sprintf("select %s from links where src = $1 and dst= $2", linkCols()), l.Src.Url.String(), l.Dst.Url.String())
+		row = db.QueryRow(fmt.Sprintf("select %s from links where src = $1 and dst= $2", linkCols()), l.Src.Url, l.Dst.Url)
 	} else {
 		return ErrNotFound
 	}
@@ -49,8 +48,8 @@ func (l *Link) SQLArgs() []interface{} {
 	return []interface{}{
 		l.Created.Unix(),
 		l.Updated.Unix(),
-		l.Src.Url.String(),
-		l.Dst.Url.String(),
+		l.Src.Url,
+		l.Dst.Url,
 	}
 }
 
@@ -68,21 +67,11 @@ func (l *Link) UnmarshalSQL(row sqlScannable) error {
 		return err
 	}
 
-	srcUrl, err := url.Parse(src)
-	if err != nil {
-		return err
-	}
-
-	dstUrl, err := url.Parse(dst)
-	if err != nil {
-		return err
-	}
-
 	*l = Link{
 		Created: time.Unix(created, 0),
 		Updated: time.Unix(updated, 0),
-		Src:     &Url{Url: srcUrl},
-		Dst:     &Url{Url: dstUrl},
+		Src:     &Url{Url: src},
+		Dst:     &Url{Url: dst},
 	}
 
 	return nil

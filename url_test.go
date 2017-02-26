@@ -1,15 +1,13 @@
 package main
 
 import (
-	"net/url"
 	"testing"
 )
 
 func TestUrlStorage(t *testing.T) {
 	defer resetTestData(appDB, "urls", "links")
 
-	_u, _ := url.Parse("http://youtube.com")
-	u := &Url{Url: _u}
+	u := &Url{Url: "http://youtube.com"}
 	if err := u.Insert(appDB); err != nil {
 		t.Error(err.Error())
 		return
@@ -21,7 +19,7 @@ func TestUrlStorage(t *testing.T) {
 		return
 	}
 
-	u2 := &Url{Url: _u}
+	u2 := &Url{Url: "http://youtube.com"}
 	if err := u2.Read(appDB); err != nil {
 		t.Error(err.Error())
 		return

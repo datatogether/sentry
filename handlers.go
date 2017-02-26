@@ -59,7 +59,7 @@ func ArchiveUrlHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Para
 		return
 	}
 
-	u := &Url{Url: parsed}
+	u := &Url{Url: parsed.String()}
 	if err := u.Archive(appDB); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		io.WriteString(w, fmt.Sprintf("parse url '%s' error: %s", r.FormValue("url"), err.Error()))
@@ -75,7 +75,7 @@ func UrlMetadataHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Par
 		return
 	}
 
-	u := &Url{Url: reqUrl}
+	u := &Url{Url: reqUrl.String()}
 	if err := u.Read(appDB); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		io.WriteString(w, fmt.Sprintf("read url '%s' err: %s", reqUrl.String(), err.Error()))
@@ -150,7 +150,7 @@ func UrlSetMetadataHandler(w http.ResponseWriter, r *http.Request, _ httprouter.
 		return
 	}
 
-	u := &Url{Url: reqUrl}
+	u := &Url{Url: reqUrl.String()}
 	if err := u.Read(appDB); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		io.WriteString(w, fmt.Sprintf("read url '%s' err: %s", reqUrl.String(), err.Error()))

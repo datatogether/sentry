@@ -14,20 +14,24 @@ import (
 )
 
 type Url struct {
-	Url           *url.URL
-	Created       time.Time
-	Updated       time.Time
-	Date          time.Time
-	Status        int
-	ContentType   string
-	ContentLength int64
-	Title         string
-	Id            string
-	DownloadTook  int
-	HeadersTook   int
-	Headers       []string
-	Meta          []interface{}
-	Hash          string
+	Url           string        `json:"url"`
+	Created       time.Time     `json:"created,omitempty"`
+	Updated       time.Time     `json:"updated,omitempty"`
+	Date          time.Time     `json:"date,omitempty"`
+	Status        int           `json:"status,omitempty"`
+	ContentType   string        `json:"contentType,omitempty"`
+	ContentLength int64         `json:"contentLength,omitempty"`
+	Title         string        `json:"title,omitempty"`
+	Id            string        `json:"id,omitempty"`
+	DownloadTook  int           `json:"downloadTook,omitempty"`
+	HeadersTook   int           `json:"headersTook,omitempty"`
+	Headers       []string      `json:"headers,omitempty"`
+	Meta          []interface{} `json:"meta,omitempty"`
+	Hash          string        `json:"hash,omitempty"`
+}
+
+func (u *Url) ParsedUrl() (*url.URL, error) {
+	return url.Parse(u.Url)
 }
 
 // Archive GET's a url and all linked urls
@@ -71,7 +75,7 @@ func (u *Url) Get(db sqlQueryExecable) (links []*Link, err error) {
 		return u.ReadDstLinks(db)
 	}
 
-	res, err := http.Get(u.Url.String())
+	res, err := http.Get(u.Url)
 	if err != nil {
 		return nil, err
 	}
@@ -81,9 +85,9 @@ func (u *Url) Get(db sqlQueryExecable) (links []*Link, err error) {
 
 // processResponse
 func (u *Url) processGetResponse(db sqlQueryExecable, res *http.Response) (links []*Link, err error) {
-	f, err := NewFileFromRes(u.Url.String(), res)
+	f, err := NewFileFromRes(u.Url, res)
 	if err != nil {
-		// logger.Printf("[ERR] generating response file: %s - %s\n", u.Url.String(), err)
+		// logger.Printf("[ERR] generating response file: %s - %s\n", u.Url, err)
 		return
 	}
 
@@ -98,7 +102,7 @@ func (u *Url) processGetResponse(db sqlQueryExecable, res *http.Response) (links
 	if u.ShouldPutS3() {
 		go func() {
 			if err := f.PutS3(); err != nil {
-				logger.Printf("[ERR] putting file to S3: %s - %s\n", u.Url.String(), err)
+				logger.Printf("[ERR] putting file to S3: %s - %s\n", u.Url, err)
 			}
 		}()
 	}
@@ -128,8 +132,8 @@ func (u *Url) processGetResponse(db sqlQueryExecable, res *http.Response) (links
 }
 
 func (u *Url) ReadSrcLinks(db sqlQueryable) ([]*Link, error) {
-	res, err := db.Query("select urls.url, urls.created, urls.updated, last_get, status, content_type, content_length, title, id, headers_took, download_took, headers, meta, hash from urls, links where links.dst = $1 and links.src = urls.url", u.Url.String())
-	// res, err := db.Query(fmt.Sprintf("select %s from links where src = $1", linkCols()), u.Url.String())
+	res, err := db.Query("select urls.url, urls.created, urls.updated, last_get, status, content_type, content_length, title, id, headers_took, download_took, headers, meta, hash from urls, links where links.dst = $1 and links.src = urls.url", u.Url)
+	// res, err := db.Query(fmt.Sprintf("select %s from links where src = $1", linkCols()), u.Url)
 	if err != nil {
 		return nil, err
 	}
@@ -152,8 +156,8 @@ func (u *Url) ReadSrcLinks(db sqlQueryable) ([]*Link, error) {
 }
 
 func (u *Url) ReadDstLinks(db sqlQueryable) ([]*Link, error) {
-	res, err := db.Query("select urls.url, urls.created, urls.updated, last_get, status, content_type, content_length, title, id, headers_took, download_took, headers, meta, hash from urls, links where links.src = $1 and links.dst = urls.url", u.Url.String())
-	// res, err := db.Query(fmt.Sprintf("select %s from links where src = $1", linkCols()), u.Url.String())
+	res, err := db.Query("select urls.url, urls.created, urls.updated, last_get, status, content_type, content_length, title, id, headers_took, download_took, headers, meta, hash from urls, links where links.src = $1 and links.dst = urls.url", u.Url)
+	// res, err := db.Query(fmt.Sprintf("select %s from links where src = $1", linkCols()), u.Url)
 	if err != nil {
 		return nil, err
 	}
@@ -175,17 +179,17 @@ func (u *Url) ReadDstLinks(db sqlQueryable) ([]*Link, error) {
 	return links, nil
 }
 
-func (u *Url) InboundLinks(db sqlQueryable) ([]*Link, error) {
-	res, err := db.Query(fmt.Sprintf("select %s from links where dst = $1", linkCols()), u.Url.String())
+func (u *Url) InboundLinks(db sqlQueryable) ([]string, error) {
+	res, err := db.Query("select src from links where dst = $1", u.Url)
 	if err != nil {
 		return nil, err
 	}
 	defer res.Close()
 
-	links := make([]*Link, 0)
+	links := make([]string, 0)
 	for res.Next() {
-		l := &Link{}
-		if err := l.UnmarshalSQL(res); err != nil {
+		var l string
+		if err := res.Scan(&l); err != nil {
 			return nil, err
 		}
 		links = append(links, l)
@@ -194,17 +198,17 @@ func (u *Url) InboundLinks(db sqlQueryable) ([]*Link, error) {
 	return links, nil
 }
 
-func (u *Url) OutboundLinks(db sqlQueryable) ([]*Link, error) {
-	res, err := db.Query(fmt.Sprintf("select %s from links where src = $1", linkCols()), u.Url.String())
+func (u *Url) OutboundLinks(db sqlQueryable) ([]string, error) {
+	res, err := db.Query("select dst from links where src = $1", u.Url)
 	if err != nil {
 		return nil, err
 	}
 	defer res.Close()
 
-	links := make([]*Link, 0)
+	links := make([]string, 0)
 	for res.Next() {
-		l := &Link{}
-		if err := l.UnmarshalSQL(res); err != nil {
+		var l string
+		if err := res.Scan(&l); err != nil {
 			return nil, err
 		}
 		links = append(links, l)
@@ -214,7 +218,7 @@ func (u *Url) OutboundLinks(db sqlQueryable) ([]*Link, error) {
 }
 
 func (u *Url) ReadContexts(db sqlQueryable) ([]*UrlContext, error) {
-	res, err := db.Query(fmt.Sprintf("select %s from context where context.url = $1", urlContextCols()), u.Url.String())
+	res, err := db.Query(fmt.Sprintf("select %s from context where context.url = $1", urlContextCols()), u.Url)
 	if err != nil {
 		return nil, err
 	}
@@ -235,11 +239,11 @@ func (u *Url) ReadContexts(db sqlQueryable) ([]*UrlContext, error) {
 // ShouldFetch returns weather the url should be added to the queue for updating
 // should return true if the url is new, or if we haven't checked this url in a while
 func (u *Url) ShouldEnqueueGet() bool {
-	return (u.Date.IsZero() || time.Since(u.Date) > cfg.StaleDuration()) && !enqued[u.Url.String()]
+	return (u.Date.IsZero() || time.Since(u.Date) > cfg.StaleDuration()) && !enqued[u.Url]
 }
 
 func (u *Url) ShouldEnqueueHead() bool {
-	return (u.Created == u.Updated || u.Date.IsZero() || time.Since(u.Updated) > cfg.StaleDuration()) && !enqued[u.Url.String()]
+	return (u.Created == u.Updated || u.Date.IsZero() || time.Since(u.Updated) > cfg.StaleDuration()) && !enqued[u.Url]
 }
 
 func (u *Url) ShouldPutS3() bool {
@@ -248,8 +252,8 @@ func (u *Url) ShouldPutS3() bool {
 
 // Read url from db
 func (u *Url) Read(db sqlQueryable) error {
-	if u.Url != nil {
-		row := db.QueryRow(fmt.Sprintf("select %s from urls where url = $1", urlCols()), u.Url.String())
+	if u.Url != "" {
+		row := db.QueryRow(fmt.Sprintf("select %s from urls where url = $1", urlCols()), u.Url)
 		return u.UnmarshalSQL(row)
 	}
 	return ErrNotFound
@@ -287,7 +291,7 @@ func (u *Url) Update(db sqlQueryExecable) error {
 
 // Delete a url, should only do for erronious additions
 func (u *Url) Delete(db sqlQueryExecable) error {
-	_, err := db.Exec("delete from urls where url = $1", u.Url.String())
+	_, err := db.Exec("delete from urls where url = $1", u.Url)
 	if err != nil {
 		logger.Println(err, u)
 	}
@@ -298,19 +302,24 @@ func (u *Url) Delete(db sqlQueryExecable) error {
 // by selecting all a[href] links from a given qoquery document, using
 // the receiver *Url as the base
 func (u *Url) ExtractDocLinks(db sqlQueryExecable, doc *goquery.Document) ([]*Link, error) {
+	pUrl, err := u.ParsedUrl()
+	if err != nil {
+		return nil, err
+	}
+
 	links := make([]*Link, 0)
 	// generate a list of normalized links
 	doc.Find("a[href]").Each(func(i int, s *goquery.Selection) {
 		val, _ := s.Attr("href")
 
 		// Resolve destination address to source url
-		address, err := u.Url.Parse(val)
+		address, err := pUrl.Parse(val)
 		if err != nil {
 			logger.Printf("error: resolve URL %s - %s\n", val, err)
 			return
 		}
 
-		dst := &Url{Url: address}
+		dst := &Url{Url: address.String()}
 		// Check to see if url exists, creating if not
 		if err = dst.Read(db); err != nil {
 			if err == ErrNotFound {
@@ -352,7 +361,7 @@ func urlCols() string {
 	return "url, created, updated, last_get, status, content_type, content_length, title, id, headers_took, download_took, headers, meta, hash"
 }
 
-func (u *Url) UnmarshalSQL(row sqlScannable) error {
+func (u *Url) UnmarshalSQL(row sqlScannable) (err error) {
 	var (
 		rawurl, mime, title, id, hash     string
 		created, updated, lastGet, length int64
@@ -366,11 +375,6 @@ func (u *Url) UnmarshalSQL(row sqlScannable) error {
 			return ErrNotFound
 		}
 		logger.Println(err.Error())
-		return err
-	}
-
-	parsedUrl, err := url.Parse(rawurl)
-	if err != nil {
 		return err
 	}
 
@@ -396,7 +400,7 @@ func (u *Url) UnmarshalSQL(row sqlScannable) error {
 		Created:       time.Unix(created, 0),
 		Updated:       time.Unix(updated, 0),
 		Date:          time.Unix(lastGet, 0),
-		Url:           parsedUrl,
+		Url:           rawurl,
 		Status:        status,
 		ContentType:   mime,
 		ContentLength: length,
@@ -428,7 +432,7 @@ func (u *Url) SQLArgs() []interface{} {
 	}
 
 	return []interface{}{
-		u.Url.String(),
+		u.Url,
 		u.Created.Unix(),
 		u.Updated.Unix(),
 		t,
@@ -477,7 +481,7 @@ func (u *Url) Metadata(db sqlQueryable) (*Meta, error) {
 	}
 
 	return &Meta{
-		Url:           u.Url.String(),
+		Url:           u.Url,
 		Date:          u.Date,
 		HeadersTook:   u.HeadersTook,
 		Id:            u.Id,
