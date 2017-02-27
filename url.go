@@ -30,6 +30,7 @@ type Url struct {
 	Hash          string        `json:"hash,omitempty"`
 }
 
+// ParsedUrl calls url.Parse on the url's string field
 func (u *Url) ParsedUrl() (*url.URL, error) {
 	return url.Parse(u.Url)
 }
@@ -106,6 +107,12 @@ func (u *Url) processGetResponse(db sqlQueryExecable, res *http.Response) (links
 			}
 		}()
 	}
+
+	go func() {
+		if err := WriteCapture(db, u, u.Date); err != nil {
+			logger.Println("write captured url error:", err.Error())
+		}
+	}()
 
 	// additional processing for html documents
 	if strings.Contains(strings.ToLower(u.ContentType), "text/html") {
@@ -236,14 +243,26 @@ func (u *Url) ReadContexts(db sqlQueryable) ([]*UrlContext, error) {
 	return contexts, nil
 }
 
+// isFetchable filters to only usable urls. & schemes
+func (u *Url) isFetchable() bool {
+	_u, err := u.ParsedUrl()
+	if err != nil {
+		return false
+	}
+	if _u.Scheme != "http" || _u.Scheme != "https" {
+		return false
+	}
+	return true
+}
+
 // ShouldFetch returns weather the url should be added to the queue for updating
 // should return true if the url is new, or if we haven't checked this url in a while
 func (u *Url) ShouldEnqueueGet() bool {
-	return (u.Date.IsZero() || time.Since(u.Date) > cfg.StaleDuration()) && !enqued[u.Url]
+	return u.isFetchable() && (u.Date.IsZero() || time.Since(u.Date) > cfg.StaleDuration()) && !enqued[u.Url]
 }
 
 func (u *Url) ShouldEnqueueHead() bool {
-	return (u.Created == u.Updated || u.Date.IsZero() || time.Since(u.Updated) > cfg.StaleDuration()) && !enqued[u.Url]
+	return u.isFetchable() && (u.Created == u.Updated || u.Date.IsZero() || time.Since(u.Updated) > cfg.StaleDuration()) && !enqued[u.Url]
 }
 
 func (u *Url) ShouldPutS3() bool {

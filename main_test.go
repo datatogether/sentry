@@ -38,7 +38,7 @@ func setupTestDatabase() func() {
 		logger.Panicln(err.Error())
 	}
 
-	if err := resetTestData(appDB, "domains", "urls", "links", "context"); err != nil {
+	if err := resetTestData(appDB, "domains", "urls", "links", "context", "captures"); err != nil {
 		logger.Panicln(err.Error())
 	}
 
@@ -63,6 +63,7 @@ func initializeAppSchema(db *sql.DB) (func(), error) {
 		"create-urls",
 		"create-links",
 		"create-context",
+		"create-captures",
 	} {
 		if _, err := schema.Exec(db, cmd); err != nil {
 			logger.Println(cmd, "error:", err)

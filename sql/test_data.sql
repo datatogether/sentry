@@ -12,6 +12,10 @@ insert into urls values
 insert into links values
 	(1487973225,1487973225,'http://www.epa.gov','http://www.epa.gov');
 
+-- name: insert-captures
+-- insert into captures values
+-- 	();
+
 -- name: insert-context
 insert into context values
 	('http://www.epa.gov','al',1487973225,1487973225,'1220459219b10032cc86dcdbc0f83aea15a9d3e1119e7b5170beaee233008ea2c2de', '{ "title" : "EPA" }');
@@ -24,3 +28,5 @@ delete from urls;
 delete from links;
 -- name: delete-context
 delete from context;
+-- name: delete-captures
+delete from captures;

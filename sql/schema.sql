@@ -1,5 +1,5 @@
 -- name: drop-all
-DROP TABLE IF EXISTS urls, links, domains, alerts, context, supress_alerts;
+DROP TABLE IF EXISTS urls, links, domains, alerts, context, supress_alerts, captures;
 
 -- name: create-domains
 CREATE TABLE domains (
@@ -47,6 +47,16 @@ CREATE TABLE context (
 	hash 						text NOT NULL,
 	meta 						json,
 	UNIQUE 					(url, contributor_id)
+);
+
+-- name: create-captures
+CREATE TABLE captures (
+	url 						text NOT NULL,
+	created 				integer NOT NULL,
+	status 					integer NOT NULL,
+	duration 				integer NOT NULL,
+	hash 						integer NOT NULL,
+	meta 						json
 );
 
 -- for domains table later?
