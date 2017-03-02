@@ -249,12 +249,13 @@ func (u *Url) ReadContexts(db sqlQueryable) ([]*UrlContext, error) {
 func (u *Url) isFetchable() bool {
 	_u, err := u.ParsedUrl()
 	if err != nil {
+		logger.Println(err.Error())
 		return false
 	}
-	if _u.Scheme != "http" || _u.Scheme != "https" {
-		return false
+	if _u.Scheme == "" || _u.Scheme == "http" || _u.Scheme == "https" {
+		return true
 	}
-	return true
+	return false
 }
 
 // ShouldFetch returns weather the url should be added to the queue for updating
@@ -517,7 +518,7 @@ func (u *Url) Metadata(db sqlQueryable) (*Meta, error) {
 
 	return &Meta{
 		Url:           u.Url,
-		Date:          *u.Date,
+		Date:          u.Date,
 		HeadersTook:   u.HeadersTook,
 		Id:            u.Id,
 		Status:        u.Status,

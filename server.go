@@ -49,6 +49,8 @@ func main() {
 
 	r.POST("/seed", middleware(SeedUrlHandler))
 
+	r.POST("/domains", middleware(AddDomainHandler))
+
 	r.GET("/urls", middleware(UrlsViewHandler))
 	r.GET("/url", middleware(UrlMetadataHandler))
 	r.POST("/url/meta", middleware(UrlSetMetadataHandler))
@@ -58,6 +60,7 @@ func main() {
 
 	r.GET("/mem", middleware(MemStatsHandler))
 	r.GET("/que", middleware(EnquedHandler))
+	r.POST("/que", middleware(EnqueUrlHandler))
 	r.POST("/shutdown", middleware(ShutdownHandler))
 
 	r.POST("/archive", middleware(ArchiveUrlHandler))

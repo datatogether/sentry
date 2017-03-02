@@ -25,7 +25,7 @@ func (l *Link) Read(db sqlQueryable) error {
 }
 
 func (l *Link) Insert(db sqlQueryExecable) error {
-	l.Created = time.Now()
+	l.Created = time.Now().In(time.UTC)
 	l.Updated = l.Created
 	_, err := db.Exec(fmt.Sprintf("insert into links (%s) values ($1, $2, $3, $4)", linkCols()), l.SQLArgs()...)
 	return err
@@ -46,8 +46,8 @@ func linkCols() string {
 
 func (l *Link) SQLArgs() []interface{} {
 	return []interface{}{
-		l.Created.Unix(),
-		l.Updated.Unix(),
+		l.Created.In(time.UTC),
+		l.Updated.In(time.UTC),
 		l.Src.Url,
 		l.Dst.Url,
 	}
@@ -55,7 +55,7 @@ func (l *Link) SQLArgs() []interface{} {
 
 func (l *Link) UnmarshalSQL(row sqlScannable) error {
 	var (
-		created, updated int64
+		created, updated time.Time
 		src, dst         string
 	)
 
@@ -68,8 +68,8 @@ func (l *Link) UnmarshalSQL(row sqlScannable) error {
 	}
 
 	*l = Link{
-		Created: time.Unix(created, 0),
-		Updated: time.Unix(updated, 0),
+		Created: created.In(time.UTC),
+		Updated: updated.In(time.UTC),
 		Src:     &Url{Url: src},
 		Dst:     &Url{Url: dst},
 	}

@@ -1,7 +1,7 @@
 
 -- name: insert-domains
 insert into domains values
-	('www.epa.gov',0,0,43200000,true,0);
+	('www.epa.gov','2017-01-01 00:00:01','2017-01-01 00:00:01',43200000,true,null);
 
 -- name: insert-urls
 insert into urls values

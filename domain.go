@@ -14,7 +14,7 @@ type Domain struct {
 	Updated       time.Time
 	Crawl         bool
 	StaleDuration time.Duration
-	LastAlertSent time.Time
+	LastAlertSent *time.Time
 }
 
 // Url retrieves for the domain. If one doesn't exist & the url is saved,
@@ -50,13 +50,13 @@ func (d *Domain) Read(db sqlQueryable) error {
 func (d *Domain) Insert(db sqlQueryExecable) error {
 	d.Created = time.Now()
 	d.Updated = d.Created
-	_, err := db.Exec(fmt.Sprintf("insert into domains (%s) values ($1, $2, $3, $4, $5, $6, $7)", domainCols()), d.SQLArgs()...)
+	_, err := db.Exec(fmt.Sprintf("insert into domains (%s) values ($1, $2, $3, $4, $5, $6)", domainCols()), d.SQLArgs()...)
 	return err
 }
 
 func (d *Domain) Update(db sqlQueryExecable) error {
 	d.Updated = time.Now()
-	_, err := db.Exec("update domains set created=$2 updated = $3, host = $4, stale_duration = $5, crawl = $6, last_alert_sent = $7 where url = $1", d.SQLArgs()...)
+	_, err := db.Exec("update domains set created=$2 updated = $3, stale_duration = $4, crawl = $5, last_alert_sent = $6 where host = $1", d.SQLArgs()...)
 	return err
 }
 
@@ -67,10 +67,11 @@ func (d *Domain) Delete(db sqlQueryExecable) error {
 
 func (d *Domain) UnmarshalSQL(row sqlScannable) error {
 	var (
-		host                        string
-		created, updated, lastAlert time.Time
-		stale                       int64
-		crawl                       bool
+		host             string
+		created, updated time.Time
+		lastAlert        *time.Time
+		stale            int64
+		crawl            bool
 	)
 
 	if err := row.Scan(&host, &created, &updated, &stale, &crawl, &lastAlert); err != nil {
@@ -78,6 +79,11 @@ func (d *Domain) UnmarshalSQL(row sqlScannable) error {
 			return ErrNotFound
 		}
 		return err
+	}
+
+	if lastAlert != nil {
+		utc := lastAlert.In(time.UTC)
+		lastAlert = &utc
 	}
 
 	*d = Domain{
@@ -97,12 +103,18 @@ func domainCols() string {
 }
 
 func (d *Domain) SQLArgs() []interface{} {
+	date := d.LastAlertSent
+	if date != nil {
+		utc := date.In(time.UTC)
+		date = &utc
+	}
+
 	return []interface{}{
 		d.Host,
-		d.Created,
-		d.Updated,
+		d.Created.In(time.UTC),
+		d.Updated.In(time.UTC),
 		d.StaleDuration / 1000000,
 		d.Crawl,
-		d.LastAlertSent,
+		date,
 	}
 }

@@ -17,6 +17,28 @@ import (
 // see homeHandler for an example
 var templates = template.Must(template.ParseFiles("views/index.html", "views/accessDenied.html", "views/notFound.html", "views/urls.html", "views/url.html"))
 
+func AddDomainHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	parsed, err := url.Parse(r.FormValue("url"))
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		io.WriteString(w, fmt.Sprintf("parse url '%s' error: %s", r.FormValue("url"), err.Error()))
+		return
+	}
+
+	d := &Domain{
+		Host:  parsed.Host,
+		Crawl: true,
+	}
+
+	if err := d.Insert(appDB); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		io.WriteString(w, err.Error())
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
 func MemStatsHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	mu.Lock()
 	w.Write(memStats(nil))
@@ -65,6 +87,19 @@ func ArchiveUrlHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Para
 		io.WriteString(w, fmt.Sprintf("parse url '%s' error: %s", r.FormValue("url"), err.Error()))
 		return
 	}
+}
+
+func EnqueUrlHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	parsed, err := url.Parse(r.FormValue("url"))
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		io.WriteString(w, fmt.Sprintf("parse url '%s' error: %s", r.FormValue("url"), err.Error()))
+		return
+	}
+
+	logger.Printf("enquing url: %s", parsed.String())
+	queue.SendStringGet(parsed.String())
+	w.WriteHeader(http.StatusOK)
 }
 
 func UrlMetadataHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
@@ -192,6 +227,7 @@ func UrlSetMetadataHandler(w http.ResponseWriter, r *http.Request, _ httprouter.
 
 func ShutdownHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	stopCrawler <- true
+	queue.Cancel()
 	w.Write([]byte("shutting down"))
 }
 

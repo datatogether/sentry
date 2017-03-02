@@ -156,6 +156,7 @@ func loadConfigFile(mode string, cfg *config) (err error) {
 		}
 	}
 
+	logger.Printf("reading config file: %s", fileName)
 	data, err = ioutil.ReadFile(fileName)
 	if err != nil {
 		err = fmt.Errorf("error reading %s: %s", fileName, err)

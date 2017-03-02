@@ -43,6 +43,8 @@ func startCrawling() {
 	// Handle GET requests for html responses, to parse the body and enqueue all links as HEAD requests.
 	mux.Response().Method("GET").ContentType("text/html").Handler(fetchbot.HandlerFunc(
 		func(ctx *fetchbot.Context, res *http.Response, err error) {
+			// logger.Printf("[GET] %s \n", ctx.Cmd.URL())
+
 			u := &Url{Url: ctx.Cmd.URL().String()}
 			if err := u.Read(appDB); err != nil {
 				// logger.Printf("[ERR] url read error: %s - (%s) - %s\n", ctx.Cmd.URL(), NormalizeURL(ctx.Cmd.URL()), err)
@@ -70,6 +72,7 @@ func startCrawling() {
 	// to crawl links from other hosts.
 	mux.Response().Method("HEAD").ContentType("text/html").Handler(fetchbot.HandlerFunc(
 		func(ctx *fetchbot.Context, res *http.Response, err error) {
+			// logger.Printf("[HEAD] %s \n", ctx.Cmd.URL())
 			addr := ctx.Cmd.URL()
 			u := &Url{
 				Url:     addr.String(),
@@ -221,6 +224,7 @@ func seedDomains(db sqlQueryExecable, q *fetchbot.Queue) error {
 }
 
 func enqueueDomainGet(u *Url, ctx *fetchbot.Context) error {
+	// logger.Printf("url: %s, should head: %t, isFetchable: %t", u.Url, u.ShouldEnqueueHead(), u.isFetchable())
 	if u.ShouldEnqueueGet() {
 		_, err := ctx.Q.SendStringGet(u.Url)
 		if err == nil {
@@ -235,6 +239,7 @@ func enqueueDomainGet(u *Url, ctx *fetchbot.Context) error {
 
 func enqueueDstLinks(links []*Link, ctx *fetchbot.Context) error {
 	for _, l := range links {
+		// logger.Printf("url: %s, should head: %t, isFetchable: %t", l.Dst.Url, l.Dst.ShouldEnqueueHead(), l.Dst.isFetchable())
 		if l.Dst.ShouldEnqueueHead() {
 			mu.Lock()
 			if _, err := ctx.Q.SendStringHead(l.Dst.Url); err != nil {

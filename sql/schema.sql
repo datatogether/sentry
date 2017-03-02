@@ -4,11 +4,11 @@ DROP TABLE IF EXISTS urls, links, domains, alerts, context, supress_alerts, snap
 -- name: create-domains
 CREATE TABLE domains (
 	host 						text PRIMARY KEY NOT NULL,
-	created 				integer NOT NULL,
-	updated 				integer NOT NULL,
+	created 				timestamp NOT NULL default (now() at time zone 'utc'),
+	updated 				timestamp NOT NULL default (now() at time zone 'utc'),
 	stale_duration 	integer NOT NULL DEFAULT 43200000, -- defaults to 12 hours, column needs to be multiplied by 1000000 to become a poper duration
 	crawl 					boolean default true,
-	last_alert_sent bigint default 0
+	last_alert_sent timestamp
 );
 
 -- name: create-urls

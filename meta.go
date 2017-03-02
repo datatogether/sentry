@@ -6,7 +6,7 @@ import (
 
 type Meta struct {
 	Url           string            `json:"url"`
-	Date          time.Time         `json:"date"`
+	Date          *time.Time        `json:"date,omitempty"`
 	HeadersTook   int               `json:"headersTook,omitempty"`
 	Id            string            `json:"id"`
 	Status        int               `json:"status"`

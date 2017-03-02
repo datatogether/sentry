@@ -7,11 +7,12 @@
 	"HTTP_AUTH_PASSWORD" : "",
 
 	"POSTGRES_DB_URL" : "postgresql://b5@localhost:5432/sentry?sslmode=disable",
+	"PUBLIC_KEY" : "nothing_yet",
 
-	"crawl" : false,
+	"crawl" : true,
 	"polite" : false,
 	"stale_duration_hours"  : 10,
-	"crawl_delay_seconds" : 2,
+	"crawl_delay_seconds" : 1,
 
 	"template_data" : {
 		"title" : "Sentry"
