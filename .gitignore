@@ -1,5 +1,6 @@
 .DS_Store
 gin-bin
 sentry
-.env.production
-.env.test
+coverage.out
+config.production.json
+

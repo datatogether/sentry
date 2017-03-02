@@ -1,0 +1,4 @@
+{
+	"POSTGRES_DB_URL" : "postgresql://b5@localhost:5432/sentry_test?sslmode=disable",
+	"PUBLIC_KEY" : "test_public_key"
+}
