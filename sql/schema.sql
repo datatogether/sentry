@@ -1,5 +1,5 @@
 -- name: drop-all
-DROP TABLE IF EXISTS urls, links, domains, alerts, context, supress_alerts, captures;
+DROP TABLE IF EXISTS urls, links, domains, alerts, context, supress_alerts, snapshots;
 
 -- name: create-domains
 CREATE TABLE domains (
@@ -14,27 +14,27 @@ CREATE TABLE domains (
 -- name: create-urls
 CREATE TABLE urls (
 	url 						text PRIMARY KEY NOT NULL,
-	created 				integer NOT NULL,
-	updated 				integer NOT NULL,
-	last_get 				integer NOT NULL default 0,
-	status 					integer default 0,
-	content_type 		text default '',
-	content_length 	bigint default 0,
-	title  					text default '',
-	id 							text default '',
-	headers_took 		integer default 0,
-	download_took 	integer default 0,
+	created 				timestamp NOT NULL,
+	updated 				timestamp NOT NULL,
+	last_get 				timestamp,
+	status 					integer NOT NULL default 0,
+	content_type 		text NOT NULL default '',
+	content_length 	bigint NOT NULL default 0,
+	title  					text NOT NULL default '',
+	id 							text NOT NULL default '',
+	headers_took 		integer NOT NULL default 0,
+	download_took 	integer NOT NULL default 0,
 	headers 				json,
 	meta 						json,
-	hash 						text default ''
+	hash 						text NOT NULL default ''
 );
 
 -- name: create-links
 CREATE TABLE links (
-	created 				integer NOT NULL,
-	updated 				integer NOT NULL,
-	src 						text references urls(url),
-	dst 						text references urls(url),
+	created 				timestamp NOT NULL,
+	updated 				timestamp NOT NULL,
+	src 						text NOT NULL references urls(url),
+	dst 						text NOT NULL references urls(url),
 	PRIMARY KEY 		(src, dst)
 );
 
@@ -42,22 +42,31 @@ CREATE TABLE links (
 CREATE TABLE context (
 	url 						text NOT NULL references urls(url),
 	contributor_id 	text NOT NULL,
-	created 				integer NOT NULL,
-	updated 				integer NOT NULL,
-	hash 						text NOT NULL,
+	created 				timestamp NOT NULL,
+	updated 				timestamp NOT NULL,
+	hash 						text NOT NULL default '',
 	meta 						json,
 	UNIQUE 					(url, contributor_id)
 );
 
--- name: create-captures
-CREATE TABLE captures (
+-- name: create-snapshots
+CREATE TABLE snapshots (
 	url 						text NOT NULL,
-	created 				integer NOT NULL,
-	status 					integer NOT NULL,
-	duration 				integer NOT NULL,
-	hash 						integer NOT NULL,
-	meta 						json
+	created 				timestamp NOT NULL,
+	status 					integer NOT NULL DEFAULT 0,
+	duration 				integer NOT NULL DEFAULT 0,
+	meta 						json,
+	hash 						text NOT NULL DEFAULT ''
 );
+
+-- name: create-metablocks
+-- CREATE TABLE metablocks (
+-- 	time_stamp 			timestamp NOT NULL,
+-- 	subject 				text NOT NULL,
+-- 	meta 						text NOT NULL default '',
+-- 	prev 						text NOT NULL default '',
+-- 	key_id 					text NOT NULL default ''
+-- );
 
 -- for domains table later?
 -- cancelAfter = flag.Duration("cancelafter", 0, "automatically cancel the fetchbot after a given time")
@@ -65,7 +74,7 @@ CREATE TABLE captures (
 -- stopAfter   = flag.Duration("stopafter", 0, "automatically stop the fetchbot after a given time")
 -- stopAtURL   = flag.String("stopat", "", "automatically stop the fetchbot at a given URL")
 
--- CREATE TABLE captures (
+-- CREATE TABLE snapshots (
 -- 	id
 -- );
 

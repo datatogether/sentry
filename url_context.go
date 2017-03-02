@@ -92,35 +92,6 @@ func (c *UrlContext) ReadCurrentHash(db sqlQueryable) error {
 	return nil
 }
 
-// TODO - Storing urls as actual urls is a pain
-// func (c *UrlContext) UnmarshalJSON(data []byte) error {
-// 	d := struct {
-// 		Url           string
-// 		Created       time.Time
-// 		Updated       time.Time
-// 		Hash          string
-// 		ContributorId string
-// 		Metadata      map[string]interface{}
-// 	}{}
-// 	if err := json.Unmarshal(data, &d); err != nil {
-// 		return err
-// 	}
-// 	u, err := url.Parse(d.Url)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	*c = UrlContext{
-// 		Url:           u,
-// 		Created:       d.Created,
-// 		Updated:       d.Updated,
-// 		Hash:          d.Hash,
-// 		ContributorId: d.ContributorId,
-// 		Metadata:      d.Metadata,
-// 	}
-// 	return nil
-// }
-
 func (c *UrlContext) ParsedUrl() (*url.URL, error) {
 	return url.Parse(c.Url)
 }
@@ -129,7 +100,7 @@ func (c *UrlContext) ParsedUrl() (*url.URL, error) {
 func (c *UrlContext) UnmarshalSQL(row sqlScannable) error {
 	var (
 		u, hash, contributorId string
-		created, updated       int64
+		created, updated       time.Time
 		metadataBytes          []byte
 	)
 
@@ -153,8 +124,8 @@ func (c *UrlContext) UnmarshalSQL(row sqlScannable) error {
 	*c = UrlContext{
 		Url:           u,
 		ContributorId: contributorId,
-		Created:       time.Unix(created, 0),
-		Updated:       time.Unix(updated, 0),
+		Created:       created.In(time.UTC),
+		Updated:       updated.In(time.UTC),
 		Hash:          hash,
 		Metadata:      metadata,
 	}
@@ -177,8 +148,8 @@ func (c *UrlContext) SQLArgs() []interface{} {
 	return []interface{}{
 		c.Url,
 		c.ContributorId,
-		c.Created.Unix(),
-		c.Updated.Unix(),
+		c.Created.In(time.UTC),
+		c.Updated.In(time.UTC),
 		c.Hash,
 		metadataBytes,
 	}

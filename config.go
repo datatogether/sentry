@@ -26,6 +26,10 @@ type config struct {
 	Port string `json:"port"`
 	// url of postgres app db
 	PostgresDbUrl string `json:"POSTGRES_DB_URL"`
+
+	// Public Key to use for signing metablocks. required.
+	PublicKey string `json:"PUBLIC_KEY"`
+
 	// How long before a url is considered stale, in hours.
 	StaleDurationHours time.Duration `json:"stale_duration_hours"`
 	// crawl urls?
@@ -37,6 +41,7 @@ type config struct {
 	CrawlDelaySeconds time.Duration `json:"crawl_delay_seconds"`
 	// Content Types to Store
 	StoreContentTypes []string
+
 	// read from env variable: AWS_REGION
 	// the region your bucket is in, eg "us-east-1"
 	AwsRegion string `json:"AWS_REGION"`
@@ -104,6 +109,7 @@ func initConfig(mode string) (cfg *config, err error) {
 	// as the default. This has the effect of leaving the config.json value unchanged
 	// if the env variable is empty
 	cfg.Port = readEnvString("PORT", cfg.Port)
+	cfg.PublicKey = readEnvString("PUBLIC_KEY", cfg.PublicKey)
 	cfg.PostgresDbUrl = readEnvString("POSTGRES_DB_URL", cfg.PostgresDbUrl)
 	cfg.HttpAuthUsername = readEnvString("HTTP_AUTH_USERNAME", cfg.HttpAuthUsername)
 	cfg.HttpAuthPassword = readEnvString("HTTP_AUTH_PASSWORD", cfg.HttpAuthPassword)
@@ -119,6 +125,7 @@ func initConfig(mode string) (cfg *config, err error) {
 	err = requireConfigStrings(map[string]string{
 		"PORT":            cfg.Port,
 		"POSTGRES_DB_URL": cfg.PostgresDbUrl,
+		"PUBLIC_KEY":      cfg.PublicKey,
 	})
 
 	return

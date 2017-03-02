@@ -67,9 +67,10 @@ func (d *Domain) Delete(db sqlQueryExecable) error {
 
 func (d *Domain) UnmarshalSQL(row sqlScannable) error {
 	var (
-		host                               string
-		created, updated, stale, lastAlert int64
-		crawl                              bool
+		host                        string
+		created, updated, lastAlert time.Time
+		stale                       int64
+		crawl                       bool
 	)
 
 	if err := row.Scan(&host, &created, &updated, &stale, &crawl, &lastAlert); err != nil {
@@ -81,11 +82,11 @@ func (d *Domain) UnmarshalSQL(row sqlScannable) error {
 
 	*d = Domain{
 		Host:          host,
-		Created:       time.Unix(created, 0),
-		Updated:       time.Unix(updated, 0),
+		Created:       created,
+		Updated:       updated,
 		StaleDuration: time.Duration(stale * 1000000),
 		Crawl:         crawl,
-		LastAlertSent: time.Unix(lastAlert, 0),
+		LastAlertSent: lastAlert,
 	}
 
 	return nil
@@ -98,10 +99,10 @@ func domainCols() string {
 func (d *Domain) SQLArgs() []interface{} {
 	return []interface{}{
 		d.Host,
-		d.Created.Unix(),
-		d.Updated.Unix(),
+		d.Created,
+		d.Updated,
 		d.StaleDuration / 1000000,
 		d.Crawl,
-		d.LastAlertSent.Unix(),
+		d.LastAlertSent,
 	}
 }

@@ -15,9 +15,9 @@ import (
 
 type Url struct {
 	Url           string        `json:"url"`
-	Created       time.Time     `json:"created,omitempty"`
-	Updated       time.Time     `json:"updated,omitempty"`
-	Date          time.Time     `json:"date,omitempty"`
+	Created       time.Time     `json:"created"`
+	Updated       time.Time     `json:"updated"`
+	Date          *time.Time    `json:"date,omitempty"`
 	Status        int           `json:"status,omitempty"`
 	ContentType   string        `json:"contentType,omitempty"`
 	ContentLength int64         `json:"contentLength,omitempty"`
@@ -96,9 +96,11 @@ func (u *Url) processGetResponse(db sqlQueryExecable, res *http.Response) (links
 	u.Status = res.StatusCode
 	u.ContentLength = res.ContentLength
 	u.ContentType = res.Header.Get("Content-Type")
-	u.Date = time.Now()
 	u.Headers = rawHeadersSlice(res)
 	u.Hash = f.Hash
+
+	now := time.Now()
+	u.Date = &now
 
 	if u.ShouldPutS3() {
 		go func() {
@@ -109,8 +111,8 @@ func (u *Url) processGetResponse(db sqlQueryExecable, res *http.Response) (links
 	}
 
 	go func() {
-		if err := WriteCapture(db, u, u.Date); err != nil {
-			logger.Println("write captured url error:", err.Error())
+		if err := WriteSnapshot(db, u); err != nil {
+			logger.Println("write url snapshot error:", err.Error())
 		}
 	}()
 
@@ -258,10 +260,16 @@ func (u *Url) isFetchable() bool {
 // ShouldFetch returns weather the url should be added to the queue for updating
 // should return true if the url is new, or if we haven't checked this url in a while
 func (u *Url) ShouldEnqueueGet() bool {
-	return u.isFetchable() && (u.Date.IsZero() || time.Since(u.Date) > cfg.StaleDuration()) && !enqued[u.Url]
+	if u.Date == nil && u.isFetchable() {
+		return true
+	}
+	return u.isFetchable() && (u.Date.IsZero() || time.Since(*u.Date) > cfg.StaleDuration()) && !enqued[u.Url]
 }
 
 func (u *Url) ShouldEnqueueHead() bool {
+	if u.Date == nil && u.isFetchable() {
+		return true
+	}
 	return u.isFetchable() && (u.Created == u.Updated || u.Date.IsZero() || time.Since(u.Updated) > cfg.StaleDuration()) && !enqued[u.Url]
 }
 
@@ -382,11 +390,13 @@ func urlCols() string {
 
 func (u *Url) UnmarshalSQL(row sqlScannable) (err error) {
 	var (
-		rawurl, mime, title, id, hash     string
-		created, updated, lastGet, length int64
-		headersTook, downloadTook         int
-		headerBytes, metaBytes            []byte
-		status                            int
+		rawurl, mime, title, id, hash string
+		created, updated              time.Time
+		lastGet                       *time.Time
+		length                        int64
+		headersTook, downloadTook     int
+		headerBytes, metaBytes        []byte
+		status                        int
 	)
 
 	if err := row.Scan(&rawurl, &created, &updated, &lastGet, &status, &mime, &length, &title, &id, &headersTook, &downloadTook, &headerBytes, &metaBytes, &hash); err != nil {
@@ -415,10 +425,15 @@ func (u *Url) UnmarshalSQL(row sqlScannable) (err error) {
 		}
 	}
 
+	if lastGet != nil {
+		utc := lastGet.In(time.UTC)
+		lastGet = &utc
+	}
+
 	*u = Url{
-		Created:       time.Unix(created, 0),
-		Updated:       time.Unix(updated, 0),
-		Date:          time.Unix(lastGet, 0),
+		Created:       created.In(time.UTC),
+		Updated:       updated.In(time.UTC),
+		Date:          lastGet,
 		Url:           rawurl,
 		Status:        status,
 		ContentType:   mime,
@@ -436,11 +451,6 @@ func (u *Url) UnmarshalSQL(row sqlScannable) (err error) {
 }
 
 func (u *Url) SQLArgs() []interface{} {
-	t := int64(0)
-	if !u.Date.IsZero() {
-		t = u.Date.Unix()
-	}
-
 	headerBytes, err := json.Marshal(u.Headers)
 	if err != nil {
 		panic(err)
@@ -450,11 +460,17 @@ func (u *Url) SQLArgs() []interface{} {
 		panic(err)
 	}
 
+	date := u.Date
+	if date != nil {
+		utc := date.In(time.UTC)
+		date = &utc
+	}
+
 	return []interface{}{
 		u.Url,
-		u.Created.Unix(),
-		u.Updated.Unix(),
-		t,
+		u.Created.In(time.UTC),
+		u.Updated.In(time.UTC),
+		date,
 		u.Status,
 		u.ContentType,
 		u.ContentLength,
@@ -501,7 +517,7 @@ func (u *Url) Metadata(db sqlQueryable) (*Meta, error) {
 
 	return &Meta{
 		Url:           u.Url,
-		Date:          u.Date,
+		Date:          *u.Date,
 		HeadersTook:   u.HeadersTook,
 		Id:            u.Id,
 		Status:        u.Status,
