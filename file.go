@@ -14,6 +14,8 @@ import (
 	"net/http"
 )
 
+// File is a buffered byte slice often made from a GET response body.
+// It provides easy hash-calculation & storage to S3
 type File struct {
 	Url  string
 	Data *bytes.Buffer
@@ -52,12 +54,12 @@ func (f *File) Filename() (string, error) {
 	}
 	// lop the multihash bit off the end for storage purposes so the files don't
 	// all have that 1120 prefix
-	return f.Hash[3:], nil
+	return f.Hash[4:], nil
 }
 
 // PutS3 puts the file on S3 if it doesn't already exist
 func (f *File) PutS3() error {
-	if f.Data == nil {
+	if f.Data == nil || len(f.Data.Bytes()) == 0 {
 		return fmt.Errorf("no data for saving url to s3: '%s'", f.Url)
 	}
 
@@ -90,14 +92,16 @@ func (f *File) PutS3() error {
 	return err
 }
 
+// calculated path for s3 placement
 func (f *File) s3Path(filename string) string {
 	return cfg.AwsS3BucketPath + "/" + filename
 }
 
+// calculate the sha2-256 hash of the file's data
 func (f *File) calcHash() error {
 	h := sha256.New()
 	h.Write(f.Data.Bytes())
-	// f.Hash = base64.URLEncoding.EncodeToString(h.Sum(nil))
+
 	mhBuf, err := multihash.EncodeName(h.Sum(nil), "sha2-256")
 	if err != nil {
 		return err

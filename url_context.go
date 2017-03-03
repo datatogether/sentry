@@ -41,11 +41,11 @@ func (c *UrlContext) Save(db sqlQueryExecable) (err error) {
 		}
 
 		// insert
-		c.Created = time.Now()
+		c.Created = time.Now().In(time.UTC).Round(time.Second)
 		c.Updated = c.Created
 		_, err = db.Exec("insert into context values ($1, $2, $3, $4, $5, $6)", c.SQLArgs()...)
 	} else if err == nil {
-		c.Updated = time.Now()
+		c.Updated = time.Now().In(time.UTC).Round(time.Second)
 		_, err = db.Exec("update context set created = $3, updated = $4, hash = $5, meta = $6 where url = $1 and contributor_id = $2", c.SQLArgs()...)
 	} else {
 		return err

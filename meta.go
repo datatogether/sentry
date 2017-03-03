@@ -4,6 +4,7 @@ import (
 	"time"
 )
 
+// Meta is a struct for sharing our knowledge of a url with other services
 type Meta struct {
 	Url           string            `json:"url"`
 	Date          *time.Time        `json:"date,omitempty"`

@@ -7,6 +7,9 @@ import (
 	"time"
 )
 
+// A link represents an <a> tag in an html document src who's href
+// attribute points to the url that resolves to dst.
+// both src & dst must be stored as urls
 type Link struct {
 	Created time.Time
 	Updated time.Time

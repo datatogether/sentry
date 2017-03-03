@@ -13,26 +13,55 @@ import (
 	"github.com/pborman/uuid"
 )
 
+// URL represents a
 type Url struct {
-	Url           string        `json:"url"`
-	Created       time.Time     `json:"created"`
-	Updated       time.Time     `json:"updated"`
-	LastGet       *time.Time    `json:"lastGet,omitempty"`
-	LastHead      *time.Time    `json:"lastHead,omitempty"`
-	Status        int           `json:"status,omitempty"`
-	ContentType   string        `json:"contentType,omitempty"`
-	ContentSniff  string        `json:"contentSniff,omitempty"`
-	ContentLength int64         `json:"contentLength,omitempty"`
-	Title         string        `json:"title,omitempty"`
-	Id            string        `json:"id,omitempty"`
-	DownloadTook  int           `json:"downloadTook,omitempty"`
-	HeadersTook   int           `json:"headersTook,omitempty"`
-	Headers       []string      `json:"headers,omitempty"`
-	Meta          []interface{} `json:"meta,omitempty"`
-	Hash          string        `json:"hash,omitempty"`
+	// A Url is uniquely identified by URI string without
+	// any normalization. Url strings must always be absolute.
+	Url string `json:"url"`
+	// Created timestamp rounded to seconds in UTC
+	Created time.Time `json:"created"`
+	// Updated timestamp rounded to seconds in UTC
+	Updated time.Time `json:"updated"`
+
+	// Timestamp for most recent GET request
+	LastGet *time.Time `json:"lastGet,omitempty"`
+	// Timestamp for most revent HEAD request
+	LastHead *time.Time `json:"lastHead,omitempty"`
+
+	// Returned HTTP status code
+	Status int `json:"status,omitempty"`
+	// Returned HTTP 'Content-Type' header
+	ContentType string `json:"contentType,omitempty"`
+	// Result of mime sniffing to GET response body, as detailed at https://mimesniff.spec.whatwg.org
+	ContentSniff string `json:"contentSniff,omitempty"`
+	// ContentLength in bytes, will be the header value if only a HEAD request has been issued
+	// After a valid GET response, it will be set to the length of the returned response
+	ContentLength int64 `json:"contentLength,omitempty"`
+
+	// HTML Title tag attribute
+	Title string `json:"title,omitempty"`
+	// uuid assigend on creation for legacy purposes. Will be depricated in the future.
+	// content should be uniquely identified by either url (mutable) or hash (immutable)
+	// instead of uuid
+	Id string `json:"id,omitempty"`
+
+	// Time remote server took to transfer content in miliseconds.
+	// TODO - currently not implemented
+	DownloadTook int `json:"downloadTook,omitempty"`
+	// Time taken to  in miliseconds. currently not implemented
+	HeadersTook int `json:"headersTook,omitempty"`
+
+	// key-value slice of returned headers from most recent HEAD or GET request
+	// stored in the form [key,value,key,value...]
+	Headers []string `json:"headers,omitempty"`
+	// any associative metadata, currently not in use
+	Meta []interface{} `json:"meta,omitempty"`
+
+	// Hash is a multihash sha-256 of res.Body
+	Hash string `json:"hash,omitempty"`
 }
 
-// ParsedUrl calls url.Parse on the url's string field
+// ParsedUrl is a convenience wrapper around url.Parse
 func (u *Url) ParsedUrl() (*url.URL, error) {
 	return url.Parse(u.Url)
 }
@@ -61,9 +90,10 @@ func (u *Url) Archive(db sqlQueryExecable) error {
 				if _, err := u.Get(db); err != nil {
 					logger.Println(err.Error())
 				}
-				// need a sleep here to avoid bombing server with requests
-				time.Sleep(cfg.CrawlDelaySeconds)
 			}(db, l.Dst)
+			// need a sleep here to avoid bombing server with requests
+			// tooooo hard
+			time.Sleep(cfg.CrawlDelaySeconds)
 		}
 	}(db, links)
 
@@ -75,7 +105,7 @@ func (u *Url) Get(db sqlQueryExecable) (links []*Link, err error) {
 	// TODO - should screen to keep GET's within whitelisted domains
 	if !u.ShouldEnqueueGet() {
 		// we've fetched this url recently, bail.
-		return u.ReadDstLinks(db)
+		return ReadDstLinks(db, u)
 	}
 
 	res, err := http.Get(u.Url)
@@ -83,11 +113,12 @@ func (u *Url) Get(db sqlQueryExecable) (links []*Link, err error) {
 		return nil, err
 	}
 
-	return u.processGetResponse(db, res)
+	return u.handleGetResponse(db, res)
 }
 
-// processResponse
-func (u *Url) processGetResponse(db sqlQueryExecable, res *http.Response) (links []*Link, err error) {
+// handleGetResponse performs all necessary actions in response to a GET request, regardless
+// of weather it came from a crawl or archive request
+func (u *Url) handleGetResponse(db sqlQueryExecable, res *http.Response) (links []*Link, err error) {
 	f, err := NewFileFromRes(u.Url, res)
 	if err != nil {
 		// logger.Printf("[ERR] generating response file: %s - %s\n", u.Url, err)
@@ -143,54 +174,7 @@ func (u *Url) processGetResponse(db sqlQueryExecable, res *http.Response) (links
 	return links, nil
 }
 
-func (u *Url) ReadSrcLinks(db sqlQueryable) ([]*Link, error) {
-	res, err := db.Query("select urls.url, urls.created, urls.updated, last_get, status, content_type, content_sniff, content_length, title, id, headers_took, download_took, headers, meta, hash from urls, links where links.dst = $1 and links.src = urls.url", u.Url)
-	// res, err := db.Query(fmt.Sprintf("select %s from links where src = $1", linkCols()), u.Url)
-	if err != nil {
-		return nil, err
-	}
-	defer res.Close()
-
-	links := make([]*Link, 0)
-	for res.Next() {
-		src := &Url{}
-		if err := src.UnmarshalSQL(res); err != nil {
-			return nil, err
-		}
-		l := &Link{
-			Src: src,
-			Dst: u,
-		}
-		links = append(links, l)
-	}
-
-	return links, nil
-}
-
-func (u *Url) ReadDstLinks(db sqlQueryable) ([]*Link, error) {
-	res, err := db.Query("select urls.url, urls.created, urls.updated, last_get, status, content_type, content_sniff, content_length, title, id, headers_took, download_took, headers, meta, hash from urls, links where links.src = $1 and links.dst = urls.url", u.Url)
-	// res, err := db.Query(fmt.Sprintf("select %s from links where src = $1", linkCols()), u.Url)
-	if err != nil {
-		return nil, err
-	}
-	defer res.Close()
-
-	links := make([]*Link, 0)
-	for res.Next() {
-		dst := &Url{}
-		if err := dst.UnmarshalSQL(res); err != nil {
-			return nil, err
-		}
-		l := &Link{
-			Src: u,
-			Dst: dst,
-		}
-		links = append(links, l)
-	}
-
-	return links, nil
-}
-
+// InboundLinks
 func (u *Url) InboundLinks(db sqlQueryable) ([]string, error) {
 	res, err := db.Query("select src from links where dst = $1", u.Url)
 	if err != nil {
@@ -248,7 +232,8 @@ func (u *Url) ReadContexts(db sqlQueryable) ([]*UrlContext, error) {
 	return contexts, nil
 }
 
-// isFetchable filters to only usable urls. & schemes
+// isFetchable filters to only usable urls & schemes
+// this filters out stuff like mailto:// and ftp:// schemes
 func (u *Url) isFetchable() bool {
 	_u, err := u.ParsedUrl()
 	if err != nil {
@@ -261,16 +246,27 @@ func (u *Url) isFetchable() bool {
 	return false
 }
 
-// ShouldFetch returns weather the url should be added to the queue for updating
-// should return true if the url is new, or if we haven't checked this url in a while
-func (u *Url) ShouldEnqueueGet() bool {
-	return enqued[u.Url] == "" && u.isFetchable() && (u.LastGet == nil || u.LastGet.IsZero() || time.Since(*u.LastGet) > cfg.StaleDuration())
-}
-
+// ShouldEnqueueHead returns weather the url should be added to the que for a HEAD request.
+// It should return true if:
+// * the url is of http / https
+// * has never been GET'd or hasn't been GET'd for a period longer than the stale duration
+// * the url currently isn't in the crawling que
 func (u *Url) ShouldEnqueueHead() bool {
 	return enqued[u.Url] == "" && u.isFetchable() && (u.LastHead == nil || u.LastHead.IsZero() || time.Since(*u.LastHead) > cfg.StaleDuration())
 }
 
+// ShouldEnqueueGet returns weather the url should be added to the que for a GET request.
+// keep in mind only urls who's domain are are marked crawl : true in the domains list
+// will be candidates for GET requests.
+// It should return true if:
+// * the url is of http / https
+// * has never been GET'd or hasn't been GET'd for a period longer than the stale duration
+// * the url currently isn't in the crawling que
+func (u *Url) ShouldEnqueueGet() bool {
+	return enqued[u.Url] == "" && u.isFetchable() && (u.LastGet == nil || u.LastGet.IsZero() || time.Since(*u.LastGet) > cfg.StaleDuration())
+}
+
+// ShouldPutS3 is a chance to override weather the content should be stored
 func (u *Url) ShouldPutS3() bool {
 	return true
 }
@@ -382,10 +378,64 @@ func (u *Url) ExtractDocLinks(db sqlQueryExecable, doc *goquery.Document) ([]*Li
 	return links, nil
 }
 
+// HeadersMap formats u.Headers (a string slice) as a map[header]value
+func (u *Url) HeadersMap() (headers map[string]string) {
+	headers = map[string]string{}
+	for i, s := range u.Headers {
+		if i%2 == 0 {
+			headers[s] = u.Headers[i+1]
+		}
+	}
+	return
+}
+
+// Metadata collects up all metadata as
+func (u *Url) Metadata(db sqlQueryable) (*Meta, error) {
+	contexts, err := u.ReadContexts(db)
+	if err != nil {
+		return nil, err
+	}
+
+	ibl, err := u.InboundLinks(db)
+	if err != nil {
+		return nil, err
+	}
+
+	obl, err := u.OutboundLinks(db)
+	if err != nil {
+		return nil, err
+	}
+
+	var sha string
+	if len(u.Hash) > 4 {
+		sha = u.Hash[3:]
+	}
+
+	return &Meta{
+		Url:           u.Url,
+		Date:          u.LastGet,
+		HeadersTook:   u.HeadersTook,
+		Id:            u.Id,
+		Status:        u.Status,
+		ContentSniff:  u.ContentSniff,
+		RawHeaders:    u.Headers,
+		Headers:       u.HeadersMap(),
+		DownloadTook:  u.DownloadTook,
+		Sha256:        sha,
+		Multihash:     u.Hash,
+		Contexts:      contexts,
+		InboundLinks:  ibl,
+		OutboundLinks: obl,
+	}, nil
+}
+
+// standard-form columns for selection from postgres
 func urlCols() string {
 	return "url, created, updated, last_head, last_get, status, content_type, content_sniff, content_length, title, id, headers_took, download_took, headers, meta, hash"
 }
 
+// UnmarshalSQL reads an sql response into the url receiver
+// it expects the request to have used urlCols() for selection
 func (u *Url) UnmarshalSQL(row sqlScannable) (err error) {
 	var (
 		rawurl, mime, sniff, title, id, hash string
@@ -455,6 +505,7 @@ func (u *Url) UnmarshalSQL(row sqlScannable) (err error) {
 	return nil
 }
 
+// SQLArgs formats a url struct for inserting / updating into postgres
 func (u *Url) SQLArgs() []interface{} {
 	headerBytes, err := json.Marshal(u.Headers)
 	if err != nil {
@@ -495,53 +546,4 @@ func (u *Url) SQLArgs() []interface{} {
 		metaBytes,
 		u.Hash,
 	}
-}
-
-func (u *Url) HeadersMap() (headers map[string]string) {
-	headers = map[string]string{}
-	for i, s := range u.Headers {
-		if i%2 == 0 {
-			headers[s] = u.Headers[i+1]
-		}
-	}
-	return
-}
-
-func (u *Url) Metadata(db sqlQueryable) (*Meta, error) {
-	contexts, err := u.ReadContexts(db)
-	if err != nil {
-		return nil, err
-	}
-
-	ibl, err := u.InboundLinks(db)
-	if err != nil {
-		return nil, err
-	}
-
-	obl, err := u.OutboundLinks(db)
-	if err != nil {
-		return nil, err
-	}
-
-	var sha string
-	if len(u.Hash) > 4 {
-		sha = u.Hash[3:]
-	}
-
-	return &Meta{
-		Url:           u.Url,
-		Date:          u.LastGet,
-		HeadersTook:   u.HeadersTook,
-		Id:            u.Id,
-		Status:        u.Status,
-		ContentSniff:  u.ContentSniff,
-		RawHeaders:    u.Headers,
-		Headers:       u.HeadersMap(),
-		DownloadTook:  u.DownloadTook,
-		Sha256:        sha,
-		Multihash:     u.Hash,
-		Contexts:      contexts,
-		InboundLinks:  ibl,
-		OutboundLinks: obl,
-	}, nil
 }

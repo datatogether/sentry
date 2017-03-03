@@ -56,7 +56,7 @@ func startCrawling() {
 			delete(enqued, u.Url)
 			mu.Unlock()
 
-			links, err := u.processGetResponse(appDB, res)
+			links, err := u.handleGetResponse(appDB, res)
 			if err != nil {
 				fmt.Println(err.Error())
 				return
