@@ -195,16 +195,16 @@ func seedDomains(db sqlQueryExecable, q *fetchbot.Queue) error {
 		crawlingDomains[d.Host] = true
 		logger.Println("crawling domain:", d.Host)
 
-		// u, err := d.Url(db)
-		// if err != nil {
-		// 	fmt.Println(err)
-		// 	return err
-		// }
-		// enqued[u.Url] = "GET"
-		// _, err = q.SendStringGet(u.Url)
-		// if err != nil {
-		// 	return err
-		// }
+		u, err := d.Url(db)
+		if err != nil {
+			fmt.Println(err)
+			return err
+		}
+		enqued[u.Url] = "GET"
+		_, err = q.SendStringGet(u.Url)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
