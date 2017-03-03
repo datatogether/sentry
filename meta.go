@@ -10,6 +10,7 @@ type Meta struct {
 	HeadersTook   int               `json:"headersTook,omitempty"`
 	Id            string            `json:"id"`
 	Status        int               `json:"status"`
+	ContentSniff  string            `json:"contentSniff,omitempty"`
 	RawHeaders    []string          `json:"rawHeaders""`
 	Headers       map[string]string `json:"headers"`
 	DownloadTook  int               `json:"downloadTook,omitempty"`

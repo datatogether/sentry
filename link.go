@@ -25,18 +25,23 @@ func (l *Link) Read(db sqlQueryable) error {
 }
 
 func (l *Link) Insert(db sqlQueryExecable) error {
-	l.Created = time.Now().In(time.UTC)
+	l.Created = time.Now().In(time.UTC).Round(time.Second)
 	l.Updated = l.Created
 	_, err := db.Exec(fmt.Sprintf("insert into links (%s) values ($1, $2, $3, $4)", linkCols()), l.SQLArgs()...)
 	return err
 }
 
 func (l *Link) Update(db sqlQueryExecable) error {
-	l.Updated = time.Now()
-	_, err := db.Exec(fmt.Sprintf("update link set created = $1, updated = $2 where src = $3 and dst = $4", linkCols()), l.SQLArgs()...)
+	l.Updated = time.Now().Round(time.Second)
+	_, err := db.Exec("update links set created = $1, updated = $2 where src = $3 and dst = $4", l.SQLArgs()...)
 	if err != nil {
 		logger.Println(err, l)
 	}
+	return err
+}
+
+func (l *Link) Delete(db sqlQueryExecable) error {
+	_, err := db.Exec("delete from links where src = $1 and dst = $2", l.Src.Url, l.Dst.Url)
 	return err
 }
 

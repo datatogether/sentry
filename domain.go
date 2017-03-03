@@ -48,15 +48,15 @@ func (d *Domain) Read(db sqlQueryable) error {
 }
 
 func (d *Domain) Insert(db sqlQueryExecable) error {
-	d.Created = time.Now()
+	d.Created = time.Now().Round(time.Second)
 	d.Updated = d.Created
 	_, err := db.Exec(fmt.Sprintf("insert into domains (%s) values ($1, $2, $3, $4, $5, $6)", domainCols()), d.SQLArgs()...)
 	return err
 }
 
 func (d *Domain) Update(db sqlQueryExecable) error {
-	d.Updated = time.Now()
-	_, err := db.Exec("update domains set created=$2 updated = $3, stale_duration = $4, crawl = $5, last_alert_sent = $6 where host = $1", d.SQLArgs()...)
+	d.Updated = time.Now().Round(time.Second)
+	_, err := db.Exec("update domains set created=$2, updated = $3, stale_duration = $4, crawl = $5, last_alert_sent = $6 where host = $1", d.SQLArgs()...)
 	return err
 }
 
@@ -88,8 +88,8 @@ func (d *Domain) UnmarshalSQL(row sqlScannable) error {
 
 	*d = Domain{
 		Host:          host,
-		Created:       created,
-		Updated:       updated,
+		Created:       created.In(time.UTC),
+		Updated:       updated.In(time.UTC),
 		StaleDuration: time.Duration(stale * 1000000),
 		Crawl:         crawl,
 		LastAlertSent: lastAlert,

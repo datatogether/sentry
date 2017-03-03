@@ -20,6 +20,7 @@ CREATE TABLE urls (
 	last_get 				timestamp,
 	status 					integer NOT NULL default 0,
 	content_type 		text NOT NULL default '',
+	content_sniff 	text NOT NULL default '',
 	content_length 	bigint NOT NULL default 0,
 	title  					text NOT NULL default '',
 	id 							text NOT NULL default '',

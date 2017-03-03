@@ -21,6 +21,7 @@ type Url struct {
 	LastHead      *time.Time    `json:"lastHead,omitempty"`
 	Status        int           `json:"status,omitempty"`
 	ContentType   string        `json:"contentType,omitempty"`
+	ContentSniff  string        `json:"contentSniff,omitempty"`
 	ContentLength int64         `json:"contentLength,omitempty"`
 	Title         string        `json:"title,omitempty"`
 	Id            string        `json:"id,omitempty"`
@@ -95,8 +96,9 @@ func (u *Url) processGetResponse(db sqlQueryExecable, res *http.Response) (links
 
 	// universally recorded responses:
 	u.Status = res.StatusCode
-	u.ContentLength = res.ContentLength
+	u.ContentLength = int64(f.Data.Len())
 	u.ContentType = res.Header.Get("Content-Type")
+	u.ContentSniff = http.DetectContentType(f.Data.Bytes())
 	u.Headers = rawHeadersSlice(res)
 	u.Hash = f.Hash
 
@@ -142,7 +144,7 @@ func (u *Url) processGetResponse(db sqlQueryExecable, res *http.Response) (links
 }
 
 func (u *Url) ReadSrcLinks(db sqlQueryable) ([]*Link, error) {
-	res, err := db.Query("select urls.url, urls.created, urls.updated, last_get, status, content_type, content_length, title, id, headers_took, download_took, headers, meta, hash from urls, links where links.dst = $1 and links.src = urls.url", u.Url)
+	res, err := db.Query("select urls.url, urls.created, urls.updated, last_get, status, content_type, content_sniff, content_length, title, id, headers_took, download_took, headers, meta, hash from urls, links where links.dst = $1 and links.src = urls.url", u.Url)
 	// res, err := db.Query(fmt.Sprintf("select %s from links where src = $1", linkCols()), u.Url)
 	if err != nil {
 		return nil, err
@@ -166,7 +168,7 @@ func (u *Url) ReadSrcLinks(db sqlQueryable) ([]*Link, error) {
 }
 
 func (u *Url) ReadDstLinks(db sqlQueryable) ([]*Link, error) {
-	res, err := db.Query("select urls.url, urls.created, urls.updated, last_get, status, content_type, content_length, title, id, headers_took, download_took, headers, meta, hash from urls, links where links.src = $1 and links.dst = urls.url", u.Url)
+	res, err := db.Query("select urls.url, urls.created, urls.updated, last_get, status, content_type, content_sniff, content_length, title, id, headers_took, download_took, headers, meta, hash from urls, links where links.src = $1 and links.dst = urls.url", u.Url)
 	// res, err := db.Query(fmt.Sprintf("select %s from links where src = $1", linkCols()), u.Url)
 	if err != nil {
 		return nil, err
@@ -287,7 +289,7 @@ func (u *Url) Insert(db sqlQueryExecable) error {
 	u.Created = time.Now().Round(time.Second)
 	u.Updated = u.Created
 	u.Id = uuid.New()
-	_, err := db.Exec(fmt.Sprintf("insert into urls (%s) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)", urlCols()), u.SQLArgs()...)
+	_, err := db.Exec(fmt.Sprintf("insert into urls (%s) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)", urlCols()), u.SQLArgs()...)
 	if err != nil {
 		logger.Println(err.Error())
 		logger.Println(u.SQLArgs())
@@ -304,7 +306,7 @@ func (u *Url) Update(db sqlQueryExecable) error {
 	if u.Status < -1 {
 		u.Status = -1
 	}
-	_, err := db.Exec("update urls set created=$2, updated=$3, last_head=$4, last_get=$5, status=$6, content_type=$7, content_length=$8, title=$9, id=$10, headers_took=$11, download_took=$12, headers=$13, meta=$14, hash=$15 where url = $1", u.SQLArgs()...)
+	_, err := db.Exec("update urls set created=$2, updated=$3, last_head=$4, last_get=$5, status=$6, content_type=$7, content_sniff=$8, content_length=$9, title=$10, id=$11, headers_took=$12, download_took=$13, headers=$14, meta=$15, hash=$16 where url = $1", u.SQLArgs()...)
 	if err != nil {
 		logger.Println(err.Error())
 		logger.Println(u.SQLArgs())
@@ -381,21 +383,21 @@ func (u *Url) ExtractDocLinks(db sqlQueryExecable, doc *goquery.Document) ([]*Li
 }
 
 func urlCols() string {
-	return "url, created, updated, last_head, last_get, status, content_type, content_length, title, id, headers_took, download_took, headers, meta, hash"
+	return "url, created, updated, last_head, last_get, status, content_type, content_sniff, content_length, title, id, headers_took, download_took, headers, meta, hash"
 }
 
 func (u *Url) UnmarshalSQL(row sqlScannable) (err error) {
 	var (
-		rawurl, mime, title, id, hash string
-		created, updated              time.Time
-		lastGet, lastHead             *time.Time
-		length                        int64
-		headersTook, downloadTook     int
-		headerBytes, metaBytes        []byte
-		status                        int
+		rawurl, mime, sniff, title, id, hash string
+		created, updated                     time.Time
+		lastGet, lastHead                    *time.Time
+		length                               int64
+		headersTook, downloadTook            int
+		headerBytes, metaBytes               []byte
+		status                               int
 	)
 
-	if err := row.Scan(&rawurl, &created, &updated, &lastHead, &lastGet, &status, &mime, &length, &title, &id, &headersTook, &downloadTook, &headerBytes, &metaBytes, &hash); err != nil {
+	if err := row.Scan(&rawurl, &created, &updated, &lastHead, &lastGet, &status, &mime, &sniff, &length, &title, &id, &headersTook, &downloadTook, &headerBytes, &metaBytes, &hash); err != nil {
 		if err == sql.ErrNoRows {
 			return ErrNotFound
 		}
@@ -439,6 +441,7 @@ func (u *Url) UnmarshalSQL(row sqlScannable) (err error) {
 		Url:           rawurl,
 		Status:        status,
 		ContentType:   mime,
+		ContentSniff:  sniff,
 		ContentLength: length,
 		Title:         title,
 		Id:            id,
@@ -482,6 +485,7 @@ func (u *Url) SQLArgs() []interface{} {
 		lastGet,
 		u.Status,
 		u.ContentType,
+		u.ContentSniff,
 		u.ContentLength,
 		u.Title,
 		u.Id,
@@ -530,6 +534,7 @@ func (u *Url) Metadata(db sqlQueryable) (*Meta, error) {
 		HeadersTook:   u.HeadersTook,
 		Id:            u.Id,
 		Status:        u.Status,
+		ContentSniff:  u.ContentSniff,
 		RawHeaders:    u.Headers,
 		Headers:       u.HeadersMap(),
 		DownloadTook:  u.DownloadTook,
