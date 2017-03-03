@@ -17,7 +17,8 @@ type Url struct {
 	Url           string        `json:"url"`
 	Created       time.Time     `json:"created"`
 	Updated       time.Time     `json:"updated"`
-	Date          *time.Time    `json:"date,omitempty"`
+	LastGet       *time.Time    `json:"lastGet,omitempty"`
+	LastHead      *time.Time    `json:"lastHead,omitempty"`
 	Status        int           `json:"status,omitempty"`
 	ContentType   string        `json:"contentType,omitempty"`
 	ContentLength int64         `json:"contentLength,omitempty"`
@@ -100,7 +101,7 @@ func (u *Url) processGetResponse(db sqlQueryExecable, res *http.Response) (links
 	u.Hash = f.Hash
 
 	now := time.Now()
-	u.Date = &now
+	u.LastGet = &now
 
 	if u.ShouldPutS3() {
 		go func() {
@@ -261,17 +262,11 @@ func (u *Url) isFetchable() bool {
 // ShouldFetch returns weather the url should be added to the queue for updating
 // should return true if the url is new, or if we haven't checked this url in a while
 func (u *Url) ShouldEnqueueGet() bool {
-	if u.Date == nil && u.isFetchable() {
-		return true
-	}
-	return u.isFetchable() && (u.Date.IsZero() || time.Since(*u.Date) > cfg.StaleDuration()) && !enqued[u.Url]
+	return enqued[u.Url] == "" && u.isFetchable() && (u.LastGet == nil || u.LastGet.IsZero() || time.Since(*u.LastGet) > cfg.StaleDuration())
 }
 
 func (u *Url) ShouldEnqueueHead() bool {
-	if u.Date == nil && u.isFetchable() {
-		return true
-	}
-	return u.isFetchable() && (u.Created == u.Updated || u.Date.IsZero() || time.Since(u.Updated) > cfg.StaleDuration()) && !enqued[u.Url]
+	return enqued[u.Url] == "" && u.isFetchable() && (u.LastHead == nil || u.LastHead.IsZero() || time.Since(*u.LastHead) > cfg.StaleDuration())
 }
 
 func (u *Url) ShouldPutS3() bool {
@@ -292,7 +287,7 @@ func (u *Url) Insert(db sqlQueryExecable) error {
 	u.Created = time.Now().Round(time.Second)
 	u.Updated = u.Created
 	u.Id = uuid.New()
-	_, err := db.Exec(fmt.Sprintf("insert into urls (%s) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)", urlCols()), u.SQLArgs()...)
+	_, err := db.Exec(fmt.Sprintf("insert into urls (%s) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)", urlCols()), u.SQLArgs()...)
 	if err != nil {
 		logger.Println(err.Error())
 		logger.Println(u.SQLArgs())
@@ -309,7 +304,7 @@ func (u *Url) Update(db sqlQueryExecable) error {
 	if u.Status < -1 {
 		u.Status = -1
 	}
-	_, err := db.Exec("update urls set created=$2, updated=$3, last_get=$4, status=$5, content_type=$6, content_length=$7, title=$8, id=$9, headers_took=$10, download_took=$11, headers=$12, meta=$13, hash=$14 where url = $1", u.SQLArgs()...)
+	_, err := db.Exec("update urls set created=$2, updated=$3, last_head=$4, last_get=$5, status=$6, content_type=$7, content_length=$8, title=$9, id=$10, headers_took=$11, download_took=$12, headers=$13, meta=$14, hash=$15 where url = $1", u.SQLArgs()...)
 	if err != nil {
 		logger.Println(err.Error())
 		logger.Println(u.SQLArgs())
@@ -386,21 +381,21 @@ func (u *Url) ExtractDocLinks(db sqlQueryExecable, doc *goquery.Document) ([]*Li
 }
 
 func urlCols() string {
-	return "url, created, updated, last_get, status, content_type, content_length, title, id, headers_took, download_took, headers, meta, hash"
+	return "url, created, updated, last_head, last_get, status, content_type, content_length, title, id, headers_took, download_took, headers, meta, hash"
 }
 
 func (u *Url) UnmarshalSQL(row sqlScannable) (err error) {
 	var (
 		rawurl, mime, title, id, hash string
 		created, updated              time.Time
-		lastGet                       *time.Time
+		lastGet, lastHead             *time.Time
 		length                        int64
 		headersTook, downloadTook     int
 		headerBytes, metaBytes        []byte
 		status                        int
 	)
 
-	if err := row.Scan(&rawurl, &created, &updated, &lastGet, &status, &mime, &length, &title, &id, &headersTook, &downloadTook, &headerBytes, &metaBytes, &hash); err != nil {
+	if err := row.Scan(&rawurl, &created, &updated, &lastHead, &lastGet, &status, &mime, &length, &title, &id, &headersTook, &downloadTook, &headerBytes, &metaBytes, &hash); err != nil {
 		if err == sql.ErrNoRows {
 			return ErrNotFound
 		}
@@ -431,10 +426,16 @@ func (u *Url) UnmarshalSQL(row sqlScannable) (err error) {
 		lastGet = &utc
 	}
 
+	if lastHead != nil {
+		utc := lastHead.In(time.UTC)
+		lastHead = &utc
+	}
+
 	*u = Url{
 		Created:       created.In(time.UTC),
 		Updated:       updated.In(time.UTC),
-		Date:          lastGet,
+		LastHead:      lastHead,
+		LastGet:       lastGet,
 		Url:           rawurl,
 		Status:        status,
 		ContentType:   mime,
@@ -461,17 +462,24 @@ func (u *Url) SQLArgs() []interface{} {
 		panic(err)
 	}
 
-	date := u.Date
-	if date != nil {
-		utc := date.In(time.UTC)
-		date = &utc
+	lastGet := u.LastGet
+	if lastGet != nil {
+		utc := lastGet.In(time.UTC)
+		lastGet = &utc
+	}
+
+	lastHead := u.LastHead
+	if lastHead != nil {
+		utc := lastHead.In(time.UTC)
+		lastHead = &utc
 	}
 
 	return []interface{}{
 		u.Url,
 		u.Created.In(time.UTC),
 		u.Updated.In(time.UTC),
-		date,
+		lastHead,
+		lastGet,
 		u.Status,
 		u.ContentType,
 		u.ContentLength,
@@ -518,7 +526,7 @@ func (u *Url) Metadata(db sqlQueryable) (*Meta, error) {
 
 	return &Meta{
 		Url:           u.Url,
-		Date:          u.Date,
+		Date:          u.LastGet,
 		HeadersTook:   u.HeadersTook,
 		Id:            u.Id,
 		Status:        u.Status,

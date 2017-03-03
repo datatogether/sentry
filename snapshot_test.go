@@ -11,7 +11,7 @@ func TestSnapshotStorge(t *testing.T) {
 	now := time.Now()
 	u := &Url{
 		Url:          "http://www.epa.gov",
-		Date:         &now,
+		LastGet:      &now,
 		Status:       200,
 		DownloadTook: 20,
 		Headers:      []string{"test", "header"},

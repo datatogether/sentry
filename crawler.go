@@ -24,7 +24,7 @@ var (
 	// map of domains currently crawling
 	crawlingDomains = map[string]bool{}
 	// dupe map
-	enqued      = map[string]bool{}
+	enqued      = map[string]string{}
 	stopCrawler chan bool
 )
 
@@ -74,15 +74,10 @@ func startCrawling() {
 		func(ctx *fetchbot.Context, res *http.Response, err error) {
 			// logger.Printf("[HEAD] %s \n", ctx.Cmd.URL())
 			addr := ctx.Cmd.URL()
-			u := &Url{
-				Url:     addr.String(),
-				Headers: rawHeadersSlice(res),
-				// TODO HeadersTook: 0,
-				// TODO DownloadTook: 0,
-			}
+			u := &Url{Url: addr.String()}
 
 			mu.Lock()
-			enqued[u.Url] = false
+			enqued[u.Url] = ""
 			mu.Unlock()
 
 			if err := u.Read(appDB); err != nil {
@@ -90,23 +85,24 @@ func startCrawling() {
 				return
 			}
 
+			u.Status = res.StatusCode
+			u.ContentLength = res.ContentLength
+			u.ContentType = res.Header.Get("Content-Type")
+			u.Headers = rawHeadersSlice(res)
+			// TODO u.HeadersTook = 0,
+			now := time.Now()
+			u.LastHead = &now
+
+			if err := u.Update(appDB); err != nil {
+				logger.Printf("[ERR] %s %s - %s\n", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
+				logger.Printf("%#v", u)
+			}
+
 			// if we're currently crawling this url's domain, attept to add it to the
 			// queue
 			if crawlingDomains[addr.Host] {
 				if err := enqueueDomainGet(u, ctx); err != nil {
 					logger.Printf("[ERR] %s %s - %s\n", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
-				}
-			} else {
-				// we're not crawling this domain, let's save the head info
-				if err := u.Read(appDB); err != nil {
-					logger.Printf("[ERR] %s %s - %s\n", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
-				}
-				u.Status = res.StatusCode
-				u.ContentLength = res.ContentLength
-				u.ContentType = res.Header.Get("Content-Type")
-				if err := u.Update(appDB); err != nil {
-					logger.Printf("[ERR] %s %s - %s\n", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
-					logger.Printf("%#v", u)
 				}
 			}
 		}))
@@ -168,12 +164,14 @@ func startCrawling() {
 
 	// do an initial domain seed
 	seedDomains(appDB, q)
+	seedUrls(appDB, q)
 
 	// every half stale-duration, check to see if top levels need to be re-crawled for staleness
 	go func() {
 		c := time.After(time.Duration(cfg.StaleDuration() / 2))
 		<-c
 		seedDomains(appDB, q)
+		seedUrls(appDB, q)
 	}()
 
 	q.Block()
@@ -195,30 +193,38 @@ func seedDomains(db sqlQueryExecable, q *fetchbot.Queue) error {
 		}
 
 		crawlingDomains[d.Host] = true
+		logger.Println("crawling domain:", d.Host)
 
-		fmt.Println("crawling domains:", crawlingDomains)
-		// try to read a list of unfetched known urls
-		if ufd, err := UnfetchedDomainUrls(db, d.Host); err == nil || len(ufd) == 0 {
-			for _, u := range ufd {
-				_, err = q.SendStringGet(u.Url)
-				if err != nil {
-					return err
-				}
-				enqued[u.Url] = true
-			}
-		} //else {
-
-		u, err := d.Url(db)
-		if err != nil {
-			fmt.Println(err)
-			return err
-		}
-		enqued[u.Url] = true
-		_, err = q.SendStringGet(u.Url)
-		if err != nil {
-			return err
-		}
+		// u, err := d.Url(db)
+		// if err != nil {
+		// 	fmt.Println(err)
+		// 	return err
 		// }
+		// enqued[u.Url] = "GET"
+		// _, err = q.SendStringGet(u.Url)
+		// if err != nil {
+		// 	return err
+		// }
+	}
+
+	return nil
+}
+
+// try to read a list of unfetched known urls
+func seedUrls(db sqlQueryExecable, q *fetchbot.Queue) error {
+	mu.Lock()
+	defer mu.Unlock()
+
+	logger.Println("checking for unfeched urls:")
+	if ufd, err := UnfetchedUrls(db, 100); err == nil && len(ufd) >= 0 {
+		logger.Println("adding %d unfetched urls to que", len(ufd))
+		for _, u := range ufd {
+			_, err = q.SendStringGet(u.Url)
+			if err != nil {
+				return err
+			}
+			enqued[u.Url] = "GET"
+		}
 	}
 	return nil
 }
@@ -229,7 +235,7 @@ func enqueueDomainGet(u *Url, ctx *fetchbot.Context) error {
 		_, err := ctx.Q.SendStringGet(u.Url)
 		if err == nil {
 			mu.Lock()
-			enqued[u.Url] = true
+			enqued[u.Url] = "GET"
 			mu.Unlock()
 		}
 		return err
@@ -248,7 +254,7 @@ func enqueueDstLinks(links []*Link, ctx *fetchbot.Context) error {
 				// at this point the destination has been added for a HEAD request.
 				// dup[u.String()] = true
 			}
-			enqued[l.Dst.Url] = true
+			enqued[l.Dst.Url] = "HEAD"
 			mu.Unlock()
 		}
 	}
@@ -314,9 +320,9 @@ func enquedDomains() []byte {
 	buf := bytes.NewBuffer(nil)
 	buf.WriteString("Enqued Urls:\n")
 	i := 0
-	for u, t := range enqued {
-		if t == true {
-			buf.WriteString(fmt.Sprintf("%d - %s\n", i, u))
+	for u, v := range enqued {
+		if v != "" {
+			buf.WriteString(fmt.Sprintf("%d - %s - %s\n", i, v, u))
 			i++
 		}
 	}

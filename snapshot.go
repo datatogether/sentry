@@ -27,7 +27,7 @@ func WriteSnapshot(db sqlQueryExecable, u *Url) error {
 	if err != nil {
 		return err
 	}
-	_, err = db.Exec("insert into snapshots values ($1, $2, $3, $4, $5, $6)", u.Url, u.Date.In(time.UTC), u.Status, u.DownloadTook, data, u.Hash)
+	_, err = db.Exec("insert into snapshots values ($1, $2, $3, $4, $5, $6)", u.Url, u.LastGet.In(time.UTC), u.Status, u.DownloadTook, data, u.Hash)
 	return err
 }
 

@@ -16,6 +16,7 @@ CREATE TABLE urls (
 	url 						text PRIMARY KEY NOT NULL,
 	created 				timestamp NOT NULL,
 	updated 				timestamp NOT NULL,
+	last_head 			timestamp,
 	last_get 				timestamp,
 	status 					integer NOT NULL default 0,
 	content_type 		text NOT NULL default '',

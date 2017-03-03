@@ -24,9 +24,13 @@ func ListUrls(db sqlQueryable, limit, skip int) ([]*Url, error) {
 	return urls[:i], nil
 }
 
-func UnfetchedDomainUrls(db sqlQueryable, host string) ([]*Url, error) {
-	rows, err := appDB.Query(fmt.Sprintf("select %s from urls where host = $1 and last_get = 0 limit 50", urlCols()), host)
+func UnfetchedUrls(db sqlQueryable, limit int) ([]*Url, error) {
+	if limit == 0 {
+		limit = 50
+	}
+	rows, err := appDB.Query(fmt.Sprintf("select %s from urls where last_head is null limit $1", urlCols()), limit)
 	if err != nil {
+		logger.Println(err.Error())
 		return nil, err
 	}
 	defer rows.Close()
