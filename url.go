@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -13,7 +14,7 @@ import (
 	"github.com/pborman/uuid"
 )
 
-// URL represents a
+// URL represents... a url.
 type Url struct {
 	// A Url is uniquely identified by URI string without
 	// any normalization. Url strings must always be absolute.
@@ -66,95 +67,75 @@ func (u *Url) ParsedUrl() (*url.URL, error) {
 	return url.Parse(u.Url)
 }
 
-// Archive GET's a url and all linked urls
-func (u *Url) Archive(db sqlQueryExecable) error {
-	if err := u.Read(db); err != nil {
-		if err == ErrNotFound {
-			if err := u.Insert(db); err != nil {
-				return err
-			}
-		} else {
-			return err
-		}
-	}
-
-	links, err := u.Get(db)
-	if err != nil {
-		return err
-	}
-
-	go func(db sqlQueryExecable, links []*Link) {
-		// GET each destination link from this page in parallel
-		for _, l := range links {
-			go func(db sqlQueryExecable, u *Url) {
-				if _, err := u.Get(db); err != nil {
-					logger.Println(err.Error())
-				}
-			}(db, l.Dst)
-			// need a sleep here to avoid bombing server with requests
-			// tooooo hard
-			time.Sleep(cfg.CrawlDelaySeconds)
-		}
-	}(db, links)
-
-	return err
-}
-
 // Issue a GET request to this URL if it's eligible for one
-func (u *Url) Get(db sqlQueryExecable) (links []*Link, err error) {
-	// TODO - should screen to keep GET's within whitelisted domains
+func (u *Url) Get(db sqlQueryExecable, done func(err error)) (links []*Link, err error) {
+	// TODO - should screen to keep GET's within whitelisted domains?
 	if !u.ShouldEnqueueGet() {
-		// we've fetched this url recently, bail.
+		// we've fetched this url recently, bail with already-stored links
+		done(nil)
 		return ReadDstLinks(db, u)
 	}
 
+	// actual get request using http.DefaultClient
 	res, err := http.Get(u.Url)
 	if err != nil {
+		done(nil)
 		return nil, err
 	}
 
-	return u.handleGetResponse(db, res)
+	return u.handleGetResponse(db, res, done)
 }
 
 // handleGetResponse performs all necessary actions in response to a GET request, regardless
 // of weather it came from a crawl or archive request
-func (u *Url) handleGetResponse(db sqlQueryExecable, res *http.Response) (links []*Link, err error) {
+func (u *Url) handleGetResponse(db sqlQueryExecable, res *http.Response, done func(err error)) (links []*Link, err error) {
 	f, err := NewFileFromRes(u.Url, res)
 	if err != nil {
-		// logger.Printf("[ERR] generating response file: %s - %s\n", u.Url, err)
+		logger.Printf("[ERR] generating response file: %s - %s\n", u.Url, err)
 		return
 	}
 
 	// universally recorded responses:
 	u.Status = res.StatusCode
-	u.ContentLength = int64(f.Data.Len())
+	u.ContentLength = int64(len(f.Data))
 	u.ContentType = res.Header.Get("Content-Type")
-	u.ContentSniff = http.DetectContentType(f.Data.Bytes())
+	u.ContentSniff = http.DetectContentType(f.Data)
 	u.Headers = rawHeadersSlice(res)
 	u.Hash = f.Hash
 
 	now := time.Now()
 	u.LastGet = &now
 
+	tasks := 0
+	c := make(chan error, 2)
+
+	go func() {
+		tasks++
+		c <- WriteSnapshot(db, u)
+	}()
+
 	if u.ShouldPutS3() {
+		tasks++
 		go func() {
-			if err := f.PutS3(); err != nil {
-				logger.Printf("[ERR] putting file to S3: %s - %s\n", u.Url, err)
-			}
+			c <- f.PutS3()
 		}()
 	}
 
 	go func() {
-		if err := WriteSnapshot(db, u); err != nil {
-			logger.Println("write url snapshot error:", err.Error())
+		for i := 0; i < tasks; i++ {
+			if err := <-c; err != nil {
+				done(err)
+				return
+			}
 		}
+		done(nil)
 	}()
 
 	// additional processing for html documents
 	if strings.Contains(strings.ToLower(u.ContentType), "text/html") {
 		var doc *goquery.Document
 		// Process the body to find links
-		doc, err = goquery.NewDocumentFromReader(f.Data)
+		doc, err = goquery.NewDocumentFromReader(bytes.NewBuffer(f.Data))
 		if err != nil {
 			return
 		}
@@ -174,7 +155,7 @@ func (u *Url) handleGetResponse(db sqlQueryExecable, res *http.Response) (links 
 	return links, nil
 }
 
-// InboundLinks
+// InboundLinks returns a slice of url strings that link to this url
 func (u *Url) InboundLinks(db sqlQueryable) ([]string, error) {
 	res, err := db.Query("select src from links where dst = $1", u.Url)
 	if err != nil {
@@ -194,6 +175,7 @@ func (u *Url) InboundLinks(db sqlQueryable) ([]string, error) {
 	return links, nil
 }
 
+// Outbound returns a slice of url strings that this url links to
 func (u *Url) OutboundLinks(db sqlQueryable) ([]string, error) {
 	res, err := db.Query("select dst from links where src = $1", u.Url)
 	if err != nil {
@@ -213,6 +195,7 @@ func (u *Url) OutboundLinks(db sqlQueryable) ([]string, error) {
 	return links, nil
 }
 
+// ReadContexts reads all context information contributed about this url
 func (u *Url) ReadContexts(db sqlQueryable) ([]*UrlContext, error) {
 	res, err := db.Query(fmt.Sprintf("select %s from context where context.url = $1", urlContextCols()), u.Url)
 	if err != nil {
@@ -269,6 +252,15 @@ func (u *Url) ShouldEnqueueGet() bool {
 // ShouldPutS3 is a chance to override weather the content should be stored
 func (u *Url) ShouldPutS3() bool {
 	return true
+}
+
+// File leverages a url's hash to generate a file that can have it's bytes read back
+func (u *Url) File() (*File, error) {
+	if u.Hash == "" {
+		return nil, fmt.Errorf("hash required to generate file from url")
+	}
+
+	return &File{Hash: u.Hash}, nil
 }
 
 // Read url from db

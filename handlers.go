@@ -15,8 +15,34 @@ import (
 
 // templates is a collection of views for rendering with the renderTemplate function
 // see homeHandler for an example
-var templates = template.Must(template.ParseFiles("views/index.html", "views/accessDenied.html", "views/notFound.html", "views/urls.html", "views/url.html"))
+var templates = template.Must(template.ParseFiles(
+	"views/index.html",
+	"views/accessDenied.html",
+	"views/notFound.html",
+	"views/urls.html",
+	"views/url.html",
+))
 
+// List Domains
+func ListDomainsHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	list, err := ListDomains(appDB, 25, 0)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		io.WriteString(w, err.Error())
+		return
+	}
+
+	data, err := json.MarshalIndent(list, "", "  ")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write(data)
+}
+
+// AddDomainHandler adds a domain for crawling.
 func AddDomainHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	parsed, err := url.Parse(r.FormValue("url"))
 	if err != nil {
@@ -74,19 +100,23 @@ func SeedUrlHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 }
 
 func ArchiveUrlHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	parsed, err := url.Parse(r.FormValue("url"))
+	done := func(err error) {}
+	res, _, err := ArchiveUrl(appDB, r.FormValue("url"), done)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		io.WriteString(w, fmt.Sprintf("parse url '%s' error: %s", r.FormValue("url"), err.Error()))
+		io.WriteString(w, fmt.Sprintf("archive url '%s' error: %s", r.FormValue("url"), err.Error()))
 		return
 	}
 
-	u := &Url{Url: parsed.String()}
-	if err := u.Archive(appDB); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		io.WriteString(w, fmt.Sprintf("parse url '%s' error: %s", r.FormValue("url"), err.Error()))
+	data, err := json.MarshalIndent(res.Url, "", "  ")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		io.WriteString(w, fmt.Sprintf("error marshalling url json: %s", err.Error()))
 		return
 	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write(data)
 }
 
 func EnqueUrlHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
@@ -227,7 +257,6 @@ func UrlSetMetadataHandler(w http.ResponseWriter, r *http.Request, _ httprouter.
 
 func ShutdownHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	stopCrawler <- true
-	queue.Cancel()
 	w.Write([]byte("shutting down"))
 }
 

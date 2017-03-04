@@ -47,8 +47,12 @@ func main() {
 	// home handler, wrapped in middlware func
 	r.GET("/", middleware(HandleDomains))
 
+	// Seed a url to the crawler
 	r.POST("/seed", middleware(SeedUrlHandler))
 
+	// List domains
+	r.GET("/domains", middleware(ListDomainsHandler))
+	// Add a crawling domain
 	r.POST("/domains", middleware(AddDomainHandler))
 
 	r.GET("/urls", middleware(UrlsViewHandler))

@@ -43,7 +43,6 @@ func startCrawling() {
 	// Handle GET requests for html responses, to parse the body and enqueue all links as HEAD requests.
 	mux.Response().Method("GET").ContentType("text/html").Handler(fetchbot.HandlerFunc(
 		func(ctx *fetchbot.Context, res *http.Response, err error) {
-			// logger.Printf("[GET] %s \n", ctx.Cmd.URL())
 
 			u := &Url{Url: ctx.Cmd.URL().String()}
 			if err := u.Read(appDB); err != nil {
@@ -56,7 +55,13 @@ func startCrawling() {
 			delete(enqued, u.Url)
 			mu.Unlock()
 
-			links, err := u.handleGetResponse(appDB, res)
+			done := func(err error) {
+				if err != nil {
+					logger.Println(err.Error())
+				}
+			}
+
+			links, err := u.handleGetResponse(appDB, res, done)
 			if err != nil {
 				fmt.Println(err.Error())
 				return
@@ -72,7 +77,6 @@ func startCrawling() {
 	// to crawl links from other hosts.
 	mux.Response().Method("HEAD").ContentType("text/html").Handler(fetchbot.HandlerFunc(
 		func(ctx *fetchbot.Context, res *http.Response, err error) {
-			// logger.Printf("[HEAD] %s \n", ctx.Cmd.URL())
 			addr := ctx.Cmd.URL()
 			u := &Url{Url: addr.String()}
 
@@ -89,7 +93,7 @@ func startCrawling() {
 			u.ContentLength = res.ContentLength
 			u.ContentType = res.Header.Get("Content-Type")
 			u.Headers = rawHeadersSlice(res)
-			// TODO u.HeadersTook = 0,
+			// TODO u.HeadersTook = 0
 			now := time.Now()
 			u.LastHead = &now
 
@@ -109,51 +113,15 @@ func startCrawling() {
 
 	// Create the Fetcher, handle the logging first, then dispatch to the Muxer
 	h := logHandler(mux)
-	// if *stopAtURL != "" || *cancelAtURL != "" {
-	// 	stopURL := *stopAtURL
-	// 	if *cancelAtURL != "" {
-	// 		stopURL = *cancelAtURL
-	// 	}
-	// 	h = stopHandler(stopURL, *cancelAtURL != "", logHandler(mux))
-	// }
 
 	logger.Println("starting crawl")
 	f = fetchbot.New(h)
 	f.DisablePoliteness = !cfg.Polite
 	f.CrawlDelay = cfg.CrawlDelaySeconds * time.Second
 
-	// First mem stat print must be right after creating the fetchbot
-	// if *memStats > 0 {
-	// 	// Print starting stats
-	// 	printMemStats(nil)
-	// 	// Run at regular intervals
-	// 	runMemStats(f, *memStats)
-	// 	// On exit, print ending stats after a GC
-	// 	defer func() {
-	// 		runtime.GC()
-	// 		printMemStats(nil)
-	// 	}()
-	// }
-
 	// Start processing
 	q := f.Start()
 	queue = q
-
-	// if a stop or cancel is requested after some duration, launch the goroutine
-	// that will stop or cancel.
-	// if *stopAfter > 0 || *cancelAfter > 0 {
-	// after := time.Hour * 5 // *stopAfter
-	// stopFunc := q.Close
-	// if *cancelAfter != 0 {
-	// 	after = *cancelAfter
-	// 	stopFunc = q.Cancel
-	// }
-	// go func() {
-	// 	c := time.After(after)
-	// 	<-c
-	// 	stopFunc()
-	// }()
-	// }
 
 	stopFunc := q.Close
 	stopCrawler = make(chan bool)
@@ -178,20 +146,16 @@ func startCrawling() {
 }
 
 func seedDomains(db sqlQueryExecable, q *fetchbot.Queue) error {
-	rows, err := db.Query(fmt.Sprintf("select %s from domains where crawl = true", domainCols()))
+
+	domains, err := CrawlingDomains(db, 10000, 0)
 	if err != nil {
-		fmt.Println(err)
 		return err
 	}
 
 	mu.Lock()
 	defer mu.Unlock()
-	for rows.Next() {
-		d := &Domain{}
-		if err := d.UnmarshalSQL(rows); err != nil {
-			return err
-		}
 
+	for _, d := range domains {
 		crawlingDomains[d.Host] = true
 		logger.Println("crawling domain:", d.Host)
 

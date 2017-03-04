@@ -38,3 +38,7 @@ func TestUrlStorage(t *testing.T) {
 		return
 	}
 }
+
+func TestUrlGet(t *testing.T) {
+
+}
