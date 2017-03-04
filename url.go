@@ -92,6 +92,7 @@ func (u *Url) handleGetResponse(db sqlQueryExecable, res *http.Response, done fu
 	f, err := NewFileFromRes(u.Url, res)
 	if err != nil {
 		logger.Printf("[ERR] generating response file: %s - %s\n", u.Url, err)
+		done(err)
 		return
 	}
 
@@ -121,16 +122,6 @@ func (u *Url) handleGetResponse(db sqlQueryExecable, res *http.Response, done fu
 		}()
 	}
 
-	go func() {
-		for i := 0; i < tasks; i++ {
-			if err := <-c; err != nil {
-				done(err)
-				return
-			}
-		}
-		done(nil)
-	}()
-
 	// additional processing for html documents
 	if strings.Contains(strings.ToLower(u.ContentType), "text/html") {
 		var doc *goquery.Document
@@ -151,6 +142,17 @@ func (u *Url) handleGetResponse(db sqlQueryExecable, res *http.Response, done fu
 	if err != nil {
 		return
 	}
+
+	go func() {
+		for i := 0; i < tasks; i++ {
+			err := <-c
+			if err != nil {
+				done(err)
+				return
+			}
+		}
+		done(nil)
+	}()
 
 	return links, nil
 }

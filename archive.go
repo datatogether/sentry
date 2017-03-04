@@ -8,18 +8,18 @@ import (
 func ArchiveUrl(db sqlQueryExecable, url string, done func(err error)) (*Url, []*Link, error) {
 	u := &Url{Url: url}
 	if _, err := u.ParsedUrl(); err != nil {
-		done(nil)
+		done(err)
 		return nil, nil, err
 	}
 
 	if err := u.Read(db); err != nil {
 		if err == ErrNotFound {
 			if err := u.Insert(db); err != nil {
-				done(nil)
+				done(err)
 				return nil, nil, err
 			}
 		} else {
-			done(nil)
+			done(err)
 			return nil, nil, err
 		}
 	}
@@ -31,11 +31,11 @@ func ArchiveUrl(db sqlQueryExecable, url string, done func(err error)) (*Url, []
 		}
 	})
 	if err != nil {
-		done(nil)
+		done(err)
 		return u, links, err
 	}
 
-	tasks := len(links) + 1
+	tasks := len(links)
 	errs := make(chan error, tasks)
 	taskDone := func(err error) {
 		errs <- err
@@ -56,7 +56,8 @@ func ArchiveUrl(db sqlQueryExecable, url string, done func(err error)) (*Url, []
 
 	go func() {
 		for i := 0; i < tasks; i++ {
-			if err := <-errs; err != nil {
+			err := <-errs
+			if err != nil {
 				done(err)
 				return
 			}

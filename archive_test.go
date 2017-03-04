@@ -2,6 +2,7 @@ package main
 
 import (
 	"testing"
+	"time"
 )
 
 func TestArchive(t *testing.T) {
@@ -14,9 +15,25 @@ func TestArchive(t *testing.T) {
 	close := make(chan bool)
 
 	done := func(err error) {
+		defer func() {
+			f, _ := res.File()
+			if err := f.Delete(); err != nil {
+				t.Error(err.Error())
+				return
+			}
+
+			for _, l := range links {
+				f, _ := l.Dst.File()
+				if err := f.Delete(); err != nil {
+					t.Error(err.Error())
+				}
+			}
+			close <- true
+		}()
+		time.Sleep(time.Second)
+
 		if err != nil {
 			t.Error(err.Error())
-			close <- true
 			return
 		}
 
@@ -25,45 +42,28 @@ func TestArchive(t *testing.T) {
 			f, err := dst.File()
 			if err != nil {
 				t.Error(err.Error())
-				close <- true
 				return
 			}
 
 			if err := f.GetS3(); err != nil {
 				t.Error(err.Error())
-				close <- true
 				return
-			}
-
-			if err := f.Delete(); err != nil {
-				t.Error(err.Error())
-				close <- true
 			}
 		}
 
 		f, err := res.File()
 		if err != nil {
 			t.Error(err.Error())
-			close <- true
 			return
 		}
 
 		if err := f.GetS3(); err != nil {
 			t.Error(err.Error())
-			close <- true
 			return
 		}
-
-		if err := f.Delete(); err != nil {
-			t.Error(err.Error())
-			close <- true
-			return
-		}
-
-		close <- true
 	}
 
-	res, links, err = ArchiveUrl(appDB, "http://apple.com", done)
+	res, links, err = ArchiveUrl(appDB, "http://docs.qri.io", done)
 	if err != nil {
 		t.Error(err.Error())
 		return
