@@ -14,20 +14,22 @@ import (
 
 var (
 	// the fetcher that's doing the crawling
-	// @TODO - this shouldn't be global.
 	f *fetchbot.Fetcher
 	// the queue
-	// @TODO - this shouldn't be global either.
 	queue *fetchbot.Queue
 	// Protect access to crawling domains map
 	mu sync.Mutex
 	// map of domains currently crawling
 	crawlingDomains = map[string]bool{}
-	// dupe map
-	enqued      = map[string]string{}
+	// enqued map of url : method (HEAD|GET) to prevent double-adding
+	// to the que
+	enqued = map[string]string{}
+	// chan to stop the crawler
 	stopCrawler chan bool
 )
 
+// startCrawling initializes the crawler, queue, stopCrawler channel, and
+// crawlingDomains map
 func startCrawling() {
 	// Create the muxer
 	mux := fetchbot.NewMux()
@@ -208,18 +210,19 @@ func enqueueDomainGet(u *Url, ctx *fetchbot.Context) error {
 }
 
 func enqueueDstLinks(links []*Link, ctx *fetchbot.Context) error {
+	mu.Lock()
+	defer mu.Unlock()
+
 	for _, l := range links {
 		// logger.Printf("url: %s, should head: %t, isFetchable: %t", l.Dst.Url, l.Dst.ShouldEnqueueHead(), l.Dst.isFetchable())
 		if l.Dst.ShouldEnqueueHead() {
-			mu.Lock()
 			if _, err := ctx.Q.SendStringHead(l.Dst.Url); err != nil {
 				fmt.Printf("error: enqueue head %s - %s\n", l.Dst.Url, err)
 			} else {
 				// at this point the destination has been added for a HEAD request.
 				// dup[u.String()] = true
+				enqued[l.Dst.Url] = "HEAD"
 			}
-			enqued[l.Dst.Url] = "HEAD"
-			mu.Unlock()
 		}
 	}
 	return nil
@@ -280,10 +283,10 @@ func memStats(di *fetchbot.DebugInfo) []byte {
 	return buf.Bytes()
 }
 
-func enquedDomains() []byte {
+func enquedUrls() []byte {
 	buf := bytes.NewBuffer(nil)
 	buf.WriteString("Enqued Urls:\n")
-	i := 0
+	i := 1
 	for u, v := range enqued {
 		if v != "" {
 			buf.WriteString(fmt.Sprintf("%d - %s - %s\n", i, v, u))

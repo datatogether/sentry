@@ -1,4 +1,6 @@
 {
+	"URL_ROOT" : "sentry.b5",
+	"TLS" : true,
 	"AWS_REGION" : "us-east-1",
 	"AWS_S3_BUCKET_NAME" : "edgi.qri.io",
 	"AWS_S3_BUCKET_PATH" : "sentry",
@@ -9,10 +11,10 @@
 	"POSTGRES_DB_URL" : "postgresql://b5@localhost:5432/sentry?sslmode=disable",
 	"PUBLIC_KEY" : "nothing_yet",
 
-	"crawl" : true,
+	"crawl" : false,
 	"polite" : false,
 	"stale_duration_hours"  : 10,
-	"crawl_delay_seconds" : 2,
+	"crawl_delay_seconds" : 4,
 
 	"template_data" : {
 		"title" : "Sentry"

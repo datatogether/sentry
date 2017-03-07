@@ -16,18 +16,33 @@ const (
 	TEST_MODE       = "test"
 )
 
-// config holds all configuration for the server. It pulls from two places:
-// a config.json file in the local directory, and then from environment variables
-// any non-empty env variables override the config.json setting.
+// config holds all configuration for the server. It pulls from three places (in order):
+// 		1. environment variables
+// 		2. config.[server_mode].json <- eg: config.test.json
+// 		3. config.json
+//
+// env variables win, but can only set config who's json is ALL_CAPS
+// it's totally fine to not have, say, config.develop.json defined, and just
+// rely on a base config.json. But if you're in production mode & config.production.json
+// exists, that will be read *instead* of config.json.
+//
 // configuration is read at startup and cannot be alterd without restarting the server.
 type config struct {
 	// port to listen on, will be read from PORT env variable if present.
-	Port string `json:"port"`
+	Port string `json:"PORT"`
+
+	// root url for service
+	UrlRoot string `json:"URL_ROOT"`
+
 	// url of postgres app db
 	PostgresDbUrl string `json:"POSTGRES_DB_URL"`
 
 	// Public Key to use for signing metablocks. required.
 	PublicKey string `json:"PUBLIC_KEY"`
+
+	// TLS (HTTPS) enable support via LetsEncrypt, default false
+	// should be true in production
+	TLS bool `json:"TLS"`
 
 	// How long before a url is considered stale, in hours.
 	StaleDurationHours time.Duration `json:"stale_duration_hours"`
@@ -78,6 +93,7 @@ type config struct {
 	TemplateData map[string]interface{} `json:"template_data"`
 }
 
+// StaleDuration turns cfg.StaleDurationHours into a time.Duration
 func (cfg *config) StaleDuration() time.Duration {
 	return cfg.StaleDurationHours * time.Hour
 }
@@ -94,7 +110,9 @@ func initConfig(mode string) (cfg *config, err error) {
 	// as the default. This has the effect of leaving the config.json value unchanged
 	// if the env variable is empty
 	cfg.Port = readEnvString("PORT", cfg.Port)
+	cfg.UrlRoot = readEnvString("URL_ROOT", cfg.UrlRoot)
 	cfg.PublicKey = readEnvString("PUBLIC_KEY", cfg.PublicKey)
+	cfg.TLS = readEnvBool("TLS", cfg.TLS)
 	cfg.PostgresDbUrl = readEnvString("POSTGRES_DB_URL", cfg.PostgresDbUrl)
 	cfg.HttpAuthUsername = readEnvString("HTTP_AUTH_USERNAME", cfg.HttpAuthUsername)
 	cfg.HttpAuthPassword = readEnvString("HTTP_AUTH_PASSWORD", cfg.HttpAuthPassword)
@@ -120,6 +138,14 @@ func initConfig(mode string) (cfg *config, err error) {
 func readEnvString(key, def string) string {
 	if env := os.Getenv(key); env != "" {
 		return env
+	}
+	return def
+}
+
+// readEnvBool read key form the env, converting to a boolean value. returns def if empty
+func readEnvBool(key string, def bool) bool {
+	if env := os.Getenv(key); env != "" {
+		return env == "true" || env == "TRUE" || env == "t"
 	}
 	return def
 }
@@ -172,6 +198,7 @@ func loadConfigFile(mode string, cfg *config) (err error) {
 	return
 }
 
+// Does this file exist?
 func fileExists(path string) bool {
 	_, err := os.Stat(path)
 	return !os.IsNotExist(err)

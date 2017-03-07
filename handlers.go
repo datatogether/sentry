@@ -1,14 +1,12 @@
 package main
 
 import (
-	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"text/template"
-	"time"
 
 	"github.com/julienschmidt/httprouter"
 )
@@ -20,7 +18,6 @@ var templates = template.Must(template.ParseFiles(
 	"views/accessDenied.html",
 	"views/notFound.html",
 	"views/urls.html",
-	"views/url.html",
 ))
 
 // List Domains
@@ -73,7 +70,7 @@ func MemStatsHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 
 func EnquedHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	mu.Lock()
-	w.Write(enquedDomains())
+	w.Write(enquedUrls())
 	mu.Unlock()
 }
 
@@ -308,32 +305,4 @@ func HandleDomains(w http.ResponseWriter, r *http.Request, _ httprouter.Params) 
 	}
 
 	json.NewEncoder(w).Encode(domains)
-}
-
-// middleware handles request logging, expiry & authentication if set
-func middleware(handler httprouter.Handle) httprouter.Handle {
-	// return auth middleware if configuration settings are present
-	if cfg.HttpAuthUsername != "" && cfg.HttpAuthPassword != "" {
-		return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-			// poor man's logging:
-			fmt.Println(r.Method, r.URL.Path, time.Now())
-
-			user, pass, ok := r.BasicAuth()
-			if !ok || subtle.ConstantTimeCompare([]byte(user), []byte(cfg.HttpAuthUsername)) != 1 || subtle.ConstantTimeCompare([]byte(pass), []byte(cfg.HttpAuthPassword)) != 1 {
-				w.Header().Set("WWW-Authenticate", `Basic realm="Please enter your username and password for this site"`)
-				w.WriteHeader(http.StatusUnauthorized)
-				renderTemplate(w, "accessDenied.html")
-				return
-			}
-
-			handler(w, r, p)
-		}
-	}
-
-	// no-auth middware func
-	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		// poor man's logging:
-		fmt.Println(r.Method, r.URL.Path, time.Now())
-		handler(w, r, p)
-	}
 }

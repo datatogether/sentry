@@ -35,14 +35,14 @@ CREATE TABLE urls (
 CREATE TABLE links (
 	created 				timestamp NOT NULL,
 	updated 				timestamp NOT NULL,
-	src 						text NOT NULL references urls(url),
-	dst 						text NOT NULL references urls(url),
+	src 						text NOT NULL references urls(url) ON DELETE CASCADE,
+	dst 						text NOT NULL references urls(url) ON DELETE CASCADE,
 	PRIMARY KEY 		(src, dst)
 );
 
 -- name: create-context
 CREATE TABLE context (
-	url 						text NOT NULL references urls(url),
+	url 						text NOT NULL references urls(url) ON DELETE CASCADE,
 	contributor_id 	text NOT NULL,
 	created 				timestamp NOT NULL,
 	updated 				timestamp NOT NULL,
@@ -53,7 +53,7 @@ CREATE TABLE context (
 
 -- name: create-snapshots
 CREATE TABLE snapshots (
-	url 						text NOT NULL,
+	url 						text NOT NULL references urls(url) ON DELETE CASCADE,
 	created 				timestamp NOT NULL,
 	status 					integer NOT NULL DEFAULT 0,
 	duration 				integer NOT NULL DEFAULT 0,
