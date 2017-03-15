@@ -1,14 +1,26 @@
 -- name: drop-all
-DROP TABLE IF EXISTS urls, links, domains, alerts, context, supress_alerts, snapshots;
+DROP TABLE IF EXISTS urls, links, primers, crawl_urls, alerts, context, metadata, supress_alerts, snapshots;
 
--- name: create-domains
-CREATE TABLE domains (
-	host 						text PRIMARY KEY NOT NULL,
+-- name: create-primers
+CREATE TABLE primers (
+	id 							UUID PRIMARY KEY NOT NULL,
 	created 				timestamp NOT NULL default (now() at time zone 'utc'),
 	updated 				timestamp NOT NULL default (now() at time zone 'utc'),
-	stale_duration 	integer NOT NULL DEFAULT 43200000, -- defaults to 12 hours, column needs to be multiplied by 1000000 to become a poper duration
+	title 					text NOT NULL default '',
+	description 		text NOT NULL default '',
+	deleted 				boolean default false
+);
+
+-- name: create-crawl_urls
+CREATE TABLE crawl_urls (
+	url 						text PRIMARY KEY NOT NULL,
+	created 				timestamp NOT NULL default (now() at time zone 'utc'),
+	updated 				timestamp NOT NULL default (now() at time zone 'utc'),
+	primer_id 			UUID references primers(id) not null,
 	crawl 					boolean default true,
-	last_alert_sent timestamp
+	stale_duration 	integer NOT NULL DEFAULT 43200000, -- defaults to 12 hours, column needs to be multiplied by 1000000 to become a poper duration
+	last_alert_sent timestamp,
+	meta 						json
 );
 
 -- name: create-urls

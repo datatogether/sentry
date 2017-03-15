@@ -20,9 +20,9 @@ var templates = template.Must(template.ParseFiles(
 	"views/urls.html",
 ))
 
-// List Domains
-func ListDomainsHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	list, err := ListDomains(appDB, 25, 0)
+// ListPrimers
+func ListPrimersHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	list, err := ListPrimers(appDB, 25, 0)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		io.WriteString(w, err.Error())
@@ -39,28 +39,29 @@ func ListDomainsHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Par
 	w.Write(data)
 }
 
-// AddDomainHandler adds a domain for crawling.
-func AddDomainHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	parsed, err := url.Parse(r.FormValue("url"))
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		io.WriteString(w, fmt.Sprintf("parse url '%s' error: %s", r.FormValue("url"), err.Error()))
-		return
-	}
+// TODO - fix
+// AddPrimerHandler adds a primer for crawling.
+// func AddPrimerHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+// 	parsed, err := url.Parse(r.FormValue("url"))
+// 	if err != nil {
+// 		w.WriteHeader(http.StatusBadRequest)
+// 		io.WriteString(w, fmt.Sprintf("parse url '%s' error: %s", r.FormValue("url"), err.Error()))
+// 		return
+// 	}
 
-	d := &Domain{
-		Host:  parsed.Host,
-		Crawl: true,
-	}
+// 	d := &Primer{
+// 		Host:  parsed.Host,
+// 		Crawl: true,
+// 	}
 
-	if err := d.Insert(appDB); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		io.WriteString(w, err.Error())
-		return
-	}
+// 	if err := d.Insert(appDB); err != nil {
+// 		w.WriteHeader(http.StatusBadRequest)
+// 		io.WriteString(w, err.Error())
+// 		return
+// 	}
 
-	w.WriteHeader(http.StatusOK)
-}
+// 	w.WriteHeader(http.StatusOK)
+// }
 
 func MemStatsHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	mu.Lock()
@@ -284,25 +285,13 @@ func renderTemplate(w http.ResponseWriter, tmpl string) {
 	}
 }
 
-func HandleDomains(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	rows, err := appDB.Query(fmt.Sprintf("select %s from domains", domainCols()))
+func HandleCrawlingUrls(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	urls, err := CrawlingUrls(appDB)
 	if err != nil {
 		w.WriteHeader(500)
 		w.Write([]byte(err.Error()))
 		return
 	}
 
-	domains := []*Domain{}
-	for rows.Next() {
-		d := &Domain{}
-		if err := d.UnmarshalSQL(rows); err != nil {
-			w.WriteHeader(500)
-			w.Write([]byte(err.Error()))
-			return
-		}
-
-		domains = append(domains, d)
-	}
-
-	json.NewEncoder(w).Encode(domains)
+	json.NewEncoder(w).Encode(urls)
 }

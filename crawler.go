@@ -20,7 +20,7 @@ var (
 	// Protect access to crawling domains map
 	mu sync.Mutex
 	// map of domains currently crawling
-	crawlingDomains = map[string]bool{}
+	crawlingUrls = map[string]bool{}
 	// enqued map of url : method (HEAD|GET) to prevent double-adding
 	// to the que
 	enqued = map[string]string{}
@@ -29,7 +29,7 @@ var (
 )
 
 // startCrawling initializes the crawler, queue, stopCrawler channel, and
-// crawlingDomains map
+// crawlingUrls map
 func startCrawling() {
 	// Create the muxer
 	mux := fetchbot.NewMux()
@@ -106,7 +106,7 @@ func startCrawling() {
 
 			// if we're currently crawling this url's domain, attept to add it to the
 			// queue
-			if crawlingDomains[addr.Host] {
+			if crawlingUrls[addr.Host] {
 				if err := enqueueDomainGet(u, ctx); err != nil {
 					logger.Printf("[ERR] %s %s - %s\n", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
 				}
@@ -133,23 +133,22 @@ func startCrawling() {
 	}()
 
 	// do an initial domain seed
-	seedDomains(appDB, q)
+	seedCrawlingUrls(appDB, q)
 	seedUrls(appDB, q)
 
 	// every half stale-duration, check to see if top levels need to be re-crawled for staleness
 	go func() {
 		c := time.After(time.Duration(cfg.StaleDuration() / 2))
 		<-c
-		seedDomains(appDB, q)
+		seedCrawlingUrls(appDB, q)
 		seedUrls(appDB, q)
 	}()
 
 	q.Block()
 }
 
-func seedDomains(db sqlQueryExecable, q *fetchbot.Queue) error {
-
-	domains, err := CrawlingDomains(db, 10000, 0)
+func seedCrawlingUrls(db sqlQueryExecable, q *fetchbot.Queue) error {
+	urls, err := CrawlingUrls(db)
 	if err != nil {
 		return err
 	}
@@ -157,11 +156,11 @@ func seedDomains(db sqlQueryExecable, q *fetchbot.Queue) error {
 	mu.Lock()
 	defer mu.Unlock()
 
-	for _, d := range domains {
-		crawlingDomains[d.Host] = true
-		logger.Println("crawling domain:", d.Host)
+	for _, c := range urls {
+		crawlingUrls[c.Url] = true
+		logger.Println("crawling url:", c.Url)
 
-		u, err := d.Url(db)
+		u, err := c.AsUrl(db)
 		if err != nil {
 			fmt.Println(err)
 			return err

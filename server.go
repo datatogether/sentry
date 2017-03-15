@@ -46,15 +46,15 @@ func main() {
 	r := httprouter.New()
 
 	// home handler, wrapped in middlware func
-	r.GET("/", middleware(HandleDomains))
+	r.GET("/", middleware(HandleCrawlingUrls))
 
 	// Seed a url to the crawler
 	r.POST("/seed", middleware(SeedUrlHandler))
 
 	// List domains
-	r.GET("/domains", middleware(ListDomainsHandler))
+	r.GET("/primers", middleware(ListPrimersHandler))
 	// Add a crawling domain
-	r.POST("/domains", middleware(AddDomainHandler))
+	// r.POST("/primers", middleware(AddPrimerHandler))
 
 	r.GET("/urls", middleware(UrlsViewHandler))
 	r.GET("/url", middleware(UrlMetadataHandler))
