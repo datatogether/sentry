@@ -4,16 +4,16 @@ import (
 	"fmt"
 )
 
-func CrawlingUrls(db sqlQueryable) ([]*CrawlUrl, error) {
-	rows, err := db.Query(fmt.Sprintf("select %s from crawl_urls where crawl = true", crawlUrlCols()))
+func CrawlingUrls(db sqlQueryable) ([]*Subprimer, error) {
+	rows, err := db.Query(fmt.Sprintf("select %s from subprimers where crawl = true", subprimerCols()))
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	urls := make([]*CrawlUrl, 0)
+	urls := make([]*Subprimer, 0)
 	for rows.Next() {
-		c := &CrawlUrl{}
+		c := &Subprimer{}
 		if err := c.UnmarshalSQL(rows); err != nil {
 			return nil, err
 		}

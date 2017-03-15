@@ -1,5 +1,5 @@
 -- name: drop-all
-DROP TABLE IF EXISTS urls, links, primers, crawl_urls, alerts, context, metadata, supress_alerts, snapshots;
+DROP TABLE IF EXISTS urls, links, primers, subprimers, alerts, context, metadata, supress_alerts, snapshots;
 
 -- name: create-primers
 CREATE TABLE primers (
@@ -11,9 +11,10 @@ CREATE TABLE primers (
 	deleted 				boolean default false
 );
 
--- name: create-crawl_urls
-CREATE TABLE crawl_urls (
-	url 						text PRIMARY KEY NOT NULL,
+-- name: create-subprimers
+CREATE TABLE subprimers (
+	id 							UUID PRIMARY KEY NOT NULL,
+	url 						text UNIQUE NOT NULL,
 	created 				timestamp NOT NULL default (now() at time zone 'utc'),
 	updated 				timestamp NOT NULL default (now() at time zone 'utc'),
 	primer_id 			UUID references primers(id) not null,
@@ -22,6 +23,7 @@ CREATE TABLE crawl_urls (
 	last_alert_sent timestamp,
 	meta 						json
 );
+
 
 -- name: create-urls
 CREATE TABLE urls (

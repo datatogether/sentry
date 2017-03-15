@@ -5,12 +5,11 @@ insert into primers values
 -- name: delete-primers
 delete from primers;
 
---name: insert-crawl_urls
-insert into crawl_urls values
-  ('www.epa.gov', '2017-01-01 00:00:01', '2017-01-01 00:00:01', '5b1031f4-38a8-40b3-be91-c324bf686a87',true,43200000,null,null);
---name: delete-crawl_urls
-delete from crawl_urls;
-
+--name: insert-subprimers
+insert into subprimers values
+  ('326fcfa0-d3e6-4b2d-8f95-e77220e16109', 'www.epa.gov', '2017-01-01 00:00:01', '2017-01-01 00:00:01', '5b1031f4-38a8-40b3-be91-c324bf686a87',true,43200000,null,null);
+--name: delete-subprimers
+delete from subprimers;
 
 -- name: insert-urls
 insert into urls values

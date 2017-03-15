@@ -16,17 +16,17 @@ type Primer struct {
 	Description string    `json:"description"`
 }
 
-// CrawlUrls returns the list of listed urls for crawling associated with this primer
-func (p *Primer) CrawlUrls(db sqlQueryable) ([]*CrawlUrl, error) {
-	rows, err := db.Query(fmt.Sprintf("select %s from crawl_urls where primer_id = $1", crawlUrlCols()), p.Id)
+// Subprimers returns the list of listed urls for crawling associated with this primer
+func (p *Primer) Subprimers(db sqlQueryable) ([]*Subprimer, error) {
+	rows, err := db.Query(fmt.Sprintf("select %s from subprimers where primer_id = $1", subprimerCols()), p.Id)
 	if err != nil {
 		return nil, err
 	}
 
 	defer rows.Close()
-	urls := make([]*CrawlUrl, 0)
+	urls := make([]*Subprimer, 0)
 	for rows.Next() {
-		c := &CrawlUrl{}
+		c := &Subprimer{}
 		if err := c.UnmarshalSQL(rows); err != nil {
 			return nil, err
 		}

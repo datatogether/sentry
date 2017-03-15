@@ -4,11 +4,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/pborman/uuid"
 	"net/url"
 	"time"
 )
 
-type CrawlUrl struct {
+type Subprimer struct {
+	Id            string                 `json:"id"`
 	Url           string                 `json:"url"`
 	Created       time.Time              `json:"created"`
 	Updated       time.Time              `json:"updated"`
@@ -19,9 +21,10 @@ type CrawlUrl struct {
 	Meta          map[string]interface{} `json:"meta"`
 }
 
-// AsUrl retrieves for the crawlUrl. If one doesn't exist & the url is saved,
+// AsUrl retrieves the url that corresponds for the crawlUrl. If one doesn't exist & the url is saved,
 // a new url is created
-func (c *CrawlUrl) AsUrl(db sqlQueryExecable) (*Url, error) {
+func (c *Subprimer) AsUrl(db sqlQueryExecable) (*Url, error) {
+	// TODO - this assumes http protocol, make moar robust
 	addr, err := url.Parse(fmt.Sprintf("http://%s", c.Url))
 	if err != nil {
 		return nil, err
@@ -41,42 +44,46 @@ func (c *CrawlUrl) AsUrl(db sqlQueryExecable) (*Url, error) {
 	return u, nil
 }
 
-func (c *CrawlUrl) Read(db sqlQueryable) error {
-	if c.Url != "" {
-		row := db.QueryRow(fmt.Sprintf("select %s from crawl_urls where url = $1", crawlUrlCols()), c.Url)
+func (c *Subprimer) Read(db sqlQueryable) error {
+	if c.Id != "" {
+		row := db.QueryRow(fmt.Sprintf("select %s from subprimers where id = $1", subprimerCols()), c.Id)
+		return c.UnmarshalSQL(row)
+	} else if c.Url != "" {
+		row := db.QueryRow(fmt.Sprintf("select %s from subprimers where url = $1", subprimerCols()), c.Url)
 		return c.UnmarshalSQL(row)
 	}
 	return ErrNotFound
 }
 
-func (c *CrawlUrl) Save(db sqlQueryExecable) error {
-	prev := &CrawlUrl{Url: c.Url}
+func (c *Subprimer) Save(db sqlQueryExecable) error {
+	prev := &Subprimer{Url: c.Url}
 	if err := prev.Read(db); err != nil {
 		if err == ErrNotFound {
+			c.Id = uuid.New()
 			c.Created = time.Now().Round(time.Second)
 			c.Updated = c.Created
-			_, err := db.Exec(fmt.Sprintf("insert into crawl_urls (%s) values ($1, $2, $3, $4, $5, $6, $7, $8)", crawlUrlCols()), c.SQLArgs()...)
+			_, err := db.Exec(fmt.Sprintf("insert into subprimers (%s) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)", subprimerCols()), c.SQLArgs()...)
 			return err
 		} else {
 			return err
 		}
 	} else {
 		c.Updated = time.Now().Round(time.Second)
-		_, err := db.Exec("update crawl_urls set created = $2, updated = $3, primer_id = $4, crawl = $5, stale_duration = $6, last_alert_sent = $7, meta = $8 where url = $1", c.SQLArgs()...)
+		_, err := db.Exec("update subprimers set url = $2, created = $3, updated = $4, primer_id = $5, crawl = $6, stale_duration = $7, last_alert_sent = $8, meta = $9 where id = $1", c.SQLArgs()...)
 		return err
 	}
 
 	return nil
 }
 
-func (c *CrawlUrl) Delete(db sqlQueryExecable) error {
-	_, err := db.Exec("delete from crawl_urls where url = $1", c.Url)
+func (c *Subprimer) Delete(db sqlQueryExecable) error {
+	_, err := db.Exec("delete from subprimers where url = $1", c.Url)
 	return err
 }
 
-func (c *CrawlUrl) UnmarshalSQL(row sqlScannable) error {
+func (c *Subprimer) UnmarshalSQL(row sqlScannable) error {
 	var (
-		url, pId         string
+		id, url, pId     string
 		created, updated time.Time
 		lastAlert        *time.Time
 		stale            int64
@@ -84,7 +91,7 @@ func (c *CrawlUrl) UnmarshalSQL(row sqlScannable) error {
 		metaBytes        []byte
 	)
 
-	if err := row.Scan(&url, &created, &updated, &pId, &crawl, &stale, &lastAlert, &metaBytes); err != nil {
+	if err := row.Scan(&id, &url, &created, &updated, &pId, &crawl, &stale, &lastAlert, &metaBytes); err != nil {
 		if err == sql.ErrNoRows {
 			return ErrNotFound
 		}
@@ -103,7 +110,8 @@ func (c *CrawlUrl) UnmarshalSQL(row sqlScannable) error {
 		}
 	}
 
-	*c = CrawlUrl{
+	*c = Subprimer{
+		Id:            id,
 		Url:           url,
 		Created:       created.In(time.UTC),
 		Updated:       updated.In(time.UTC),
@@ -117,11 +125,11 @@ func (c *CrawlUrl) UnmarshalSQL(row sqlScannable) error {
 	return nil
 }
 
-func crawlUrlCols() string {
-	return "url, created, updated, primer_id, crawl, stale_duration, last_alert_sent, meta"
+func subprimerCols() string {
+	return "id, url, created, updated, primer_id, crawl, stale_duration, last_alert_sent, meta"
 }
 
-func (c *CrawlUrl) SQLArgs() []interface{} {
+func (c *Subprimer) SQLArgs() []interface{} {
 	date := c.LastAlertSent
 	if date != nil {
 		utc := date.In(time.UTC)
@@ -134,6 +142,7 @@ func (c *CrawlUrl) SQLArgs() []interface{} {
 	}
 
 	return []interface{}{
+		c.Id,
 		c.Url,
 		c.Created.In(time.UTC),
 		c.Updated.In(time.UTC),

@@ -4,10 +4,10 @@ import (
 	"testing"
 )
 
-func TestCrawlUrlStorage(t *testing.T) {
+func TestSubprimerStorage(t *testing.T) {
 	defer resetTestData(appDB, "crawl_urls")
 
-	c := &CrawlUrl{Url: "youtube.com", PrimerId: "5b1031f4-38a8-40b3-be91-c324bf686a87", Crawl: true}
+	c := &Subprimer{Url: "youtube.com", PrimerId: "5b1031f4-38a8-40b3-be91-c324bf686a87", Crawl: true}
 	if err := c.Save(appDB); err != nil {
 		t.Error(err.Error())
 		return
@@ -19,7 +19,7 @@ func TestCrawlUrlStorage(t *testing.T) {
 		return
 	}
 
-	c2 := &CrawlUrl{Url: "youtube.com"}
+	c2 := &Subprimer{Url: "youtube.com"}
 	if err := c2.Read(appDB); err != nil {
 		t.Error(err.Error())
 		return
