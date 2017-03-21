@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"net/http"
+	"net/url"
 	"runtime"
 	"strings"
 	"sync"
@@ -19,8 +20,8 @@ var (
 	queue *fetchbot.Queue
 	// Protect access to crawling domains map
 	mu sync.Mutex
-	// map of domains currently crawling
-	crawlingUrls = map[string]bool{}
+	// slice of urls currently crawling
+	crawlingUrls []*url.URL
 	// enqued map of url : method (HEAD|GET) to prevent double-adding
 	// to the que
 	enqued = map[string]string{}
@@ -29,7 +30,7 @@ var (
 )
 
 // startCrawling initializes the crawler, queue, stopCrawler channel, and
-// crawlingUrls map
+// crawlingUrls slice
 func startCrawling() {
 	// Create the muxer
 	mux := fetchbot.NewMux()
@@ -106,7 +107,7 @@ func startCrawling() {
 
 			// if we're currently crawling this url's domain, attept to add it to the
 			// queue
-			if crawlingUrls[addr.Host] {
+			if urlIsWhitelisted(addr) {
 				if err := enqueueDomainGet(u, ctx); err != nil {
 					logger.Printf("[ERR] %s %s - %s\n", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
 				}
@@ -156,8 +157,9 @@ func seedCrawlingUrls(db sqlQueryExecable, q *fetchbot.Queue) error {
 	mu.Lock()
 	defer mu.Unlock()
 
-	for _, c := range urls {
-		crawlingUrls[c.Url] = true
+	crawlingUrls = make([]*url.URL, len(urls))
+	for i, c := range urls {
+
 		logger.Println("crawling url:", c.Url)
 
 		u, err := c.AsUrl(db)
@@ -165,6 +167,13 @@ func seedCrawlingUrls(db sqlQueryExecable, q *fetchbot.Queue) error {
 			fmt.Println(err)
 			return err
 		}
+
+		url, err := u.ParsedUrl()
+		if err != nil {
+			return err
+		}
+
+		crawlingUrls[i] = url
 		enqued[u.Url] = "GET"
 		_, err = q.SendStringGet(u.Url)
 		if err != nil {
@@ -173,6 +182,19 @@ func seedCrawlingUrls(db sqlQueryExecable, q *fetchbot.Queue) error {
 	}
 
 	return nil
+}
+
+// urlIsWhitelisted scans the slice of crawlingUrls to see if we should GET
+// the passed-in url
+func urlIsWhitelisted(u *url.URL) bool {
+	for _, c := range crawlingUrls {
+		// TODO - do we need more than host comparison here
+		// to avoid crawling all of a site?
+		if c.Host == u.Host {
+			return true
+		}
+	}
+	return false
 }
 
 // try to read a list of unfetched known urls
@@ -195,7 +217,7 @@ func seedUrls(db sqlQueryExecable, q *fetchbot.Queue) error {
 }
 
 func enqueueDomainGet(u *Url, ctx *fetchbot.Context) error {
-	// logger.Printf("url: %s, should head: %t, isFetchable: %t", u.Url, u.ShouldEnqueueHead(), u.isFetchable())
+	logger.Printf("url: %s, should head: %t, isFetchable: %t", u.Url, u.ShouldEnqueueHead(), u.isFetchable())
 	if u.ShouldEnqueueGet() {
 		_, err := ctx.Q.SendStringGet(u.Url)
 		if err == nil {

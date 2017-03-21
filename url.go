@@ -55,7 +55,7 @@ type Url struct {
 	// key-value slice of returned headers from most recent HEAD or GET request
 	// stored in the form [key,value,key,value...]
 	Headers []string `json:"headers,omitempty"`
-	// any associative metadata, currently not in use
+	// any associative metadata
 	Meta []interface{} `json:"meta,omitempty"`
 
 	// Hash is a multihash sha-256 of res.Body
@@ -231,20 +231,20 @@ func (u *Url) isFetchable() bool {
 	return false
 }
 
-// ShouldEnqueueHead returns weather the url should be added to the que for a HEAD request.
+// ShouldEnqueueHead returns weather the url can be added to the que for a HEAD request.
 // It should return true if:
-// * the url is of http / https
+// * the url is of http / https scheme
 // * has never been GET'd or hasn't been GET'd for a period longer than the stale duration
 // * the url currently isn't in the crawling que
 func (u *Url) ShouldEnqueueHead() bool {
 	return enqued[u.Url] == "" && u.isFetchable() && (u.LastHead == nil || u.LastHead.IsZero() || time.Since(*u.LastHead) > cfg.StaleDuration())
 }
 
-// ShouldEnqueueGet returns weather the url should be added to the que for a GET request.
+// ShouldEnqueueGet returns weather the url can be added to the que for a GET request.
 // keep in mind only urls who's domain are are marked crawl : true in the domains list
 // will be candidates for GET requests.
 // It should return true if:
-// * the url is of http / https
+// * the url is of http / https scheme
 // * has never been GET'd or hasn't been GET'd for a period longer than the stale duration
 // * the url currently isn't in the crawling que
 func (u *Url) ShouldEnqueueGet() bool {
