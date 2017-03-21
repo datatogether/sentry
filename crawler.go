@@ -217,7 +217,7 @@ func seedUrls(db sqlQueryExecable, q *fetchbot.Queue) error {
 }
 
 func enqueueDomainGet(u *Url, ctx *fetchbot.Context) error {
-	logger.Printf("url: %s, should head: %t, isFetchable: %t", u.Url, u.ShouldEnqueueHead(), u.isFetchable())
+	// logger.Printf("url: %s, should head: %t, isFetchable: %t", u.Url, u.ShouldEnqueueHead(), u.isFetchable())
 	if u.ShouldEnqueueGet() {
 		_, err := ctx.Q.SendStringGet(u.Url)
 		if err == nil {
