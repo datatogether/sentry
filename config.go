@@ -117,6 +117,8 @@ func initConfig(mode string) (cfg *config, err error) {
 	cfg.HttpAuthUsername = readEnvString("HTTP_AUTH_USERNAME", cfg.HttpAuthUsername)
 	cfg.HttpAuthPassword = readEnvString("HTTP_AUTH_PASSWORD", cfg.HttpAuthPassword)
 	cfg.AwsAccessKeyId = readEnvString("AWS_ACCESS_KEY_ID", cfg.AwsAccessKeyId)
+	cfg.AwsS3BucketName = readEnvString("AWS_S3_BUCKET_NAME", cfg.AwsAccessKeyId)
+	cfg.AwsS3BucketPath = readEnvString("AWS_S3_BUCKET_PATH", cfg.AwsAccessKeyId)
 	cfg.AwsSecretAccessKey = readEnvString("AWS_SECRET_ACCESS_KEY", cfg.AwsSecretAccessKey)
 	cfg.CertbotResponse = readEnvString("CERTBOT_RESPONSE", cfg.CertbotResponse)
 	// cfg.StaleDuration = readEnvInt("STALE_DURATION", cfg.StaleDuration)
@@ -139,6 +141,11 @@ func initConfig(mode string) (cfg *config, err error) {
 	archive.AwsS3BucketPath = cfg.AwsS3BucketPath
 	archive.AwsSecretAccessKey = cfg.AwsSecretAccessKey
 
+	logger.Println(archive.AwsRegion, cfg.AwsRegion)
+	logger.Println(archive.AwsAccessKeyId, cfg.AwsAccessKeyId)
+	logger.Println(archive.AwsS3BucketName, cfg.AwsS3BucketName)
+	logger.Println(archive.AwsS3BucketPath, cfg.AwsS3BucketPath)
+	logger.Println(archive.AwsSecretAccessKey, cfg.AwsSecretAccessKey)
 	return
 }
 
