@@ -28,7 +28,7 @@ func UnfetchedUrls(db sqlQueryable, limit int) ([]*Url, error) {
 	if limit == 0 {
 		limit = 50
 	}
-	rows, err := appDB.Query(fmt.Sprintf("select %s from urls where last_head is null limit $1", urlCols()), limit)
+	rows, err := appDB.Query(fmt.Sprintf("select %s from urls where last_get is null limit $1", urlCols()), limit)
 	if err != nil {
 		logger.Println(err.Error())
 		return nil, err

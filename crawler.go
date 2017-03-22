@@ -135,14 +135,19 @@ func startCrawling() {
 
 	// do an initial domain seed
 	seedCrawlingUrls(appDB, q)
-	seedUrls(appDB, q)
+	seedUrls(appDB, q, 400)
 
-	// every half stale-duration, check to see if top levels need to be re-crawled for staleness
+	// check to see if top levels need to be re-crawled for staleness
 	go func() {
-		c := time.After(time.Duration(cfg.StaleDuration() / 2))
-		<-c
-		seedCrawlingUrls(appDB, q)
-		seedUrls(appDB, q)
+		c := time.Tick(time.Minute * 30)
+		select {
+		case <-c:
+			if len(enqued) < 100 {
+				logger.Println("que is low, adding urls")
+				seedCrawlingUrls(appDB, q)
+				seedUrls(appDB, q, 400)
+			}
+		}
 	}()
 
 	q.Block()
@@ -198,20 +203,27 @@ func urlIsWhitelisted(u *url.URL) bool {
 }
 
 // try to read a list of unfetched known urls
-func seedUrls(db sqlQueryExecable, q *fetchbot.Queue) error {
+func seedUrls(db sqlQueryExecable, q *fetchbot.Queue, count int) error {
 	mu.Lock()
 	defer mu.Unlock()
 
-	logger.Println("checking for unfeched urls:")
-	if ufd, err := UnfetchedUrls(db, 100); err == nil && len(ufd) >= 0 {
-		logger.Println("adding %d unfetched urls to que", len(ufd))
-		for _, u := range ufd {
-			_, err = q.SendStringGet(u.Url)
+	if ufd, err := UnfetchedUrls(db, count); err == nil && len(ufd) >= 0 {
+		i := 0
+		for _, unfetched := range ufd {
+			u, err := unfetched.ParsedUrl()
 			if err != nil {
 				return err
 			}
-			enqued[u.Url] = "GET"
+			if urlIsWhitelisted(u) {
+				_, err = q.SendStringGet(unfetched.Url)
+				if err != nil {
+					return err
+				}
+				enqued[unfetched.Url] = "GET"
+				i++
+			}
 		}
+		logger.Printf("adding %d unfetched urls to que", i)
 	}
 	return nil
 }
