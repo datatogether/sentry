@@ -133,7 +133,7 @@ func (u *Url) HandleGetResponse(db sqlQueryExecable, res *http.Response, done fu
 	}
 
 	// additional processing for html documents
-	if strings.Contains(strings.ToLower(u.ContentType), "text/html") {
+	if u.ContentSniff == "text/html; charset=utf-8" {
 		var doc *goquery.Document
 		// Process the body to find links
 		doc, err = goquery.NewDocumentFromReader(bytes.NewBuffer(f.Data))
