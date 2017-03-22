@@ -24,7 +24,7 @@ func CrawlingUrls(db sqlQueryable) ([]*Subprimer, error) {
 }
 
 func ListUrls(db sqlQueryable, limit, skip int) ([]*Url, error) {
-	rows, err := db.Query(fmt.Sprintf("select %s from urls limit $1 offset $2", urlCols()), limit, skip)
+	rows, err := db.Query(fmt.Sprintf("select %s from urls order by created desc limit $1 offset $2", urlCols()), limit, skip)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +48,7 @@ func FetchedUrls(db sqlQueryable, limit, offset int) ([]*Url, error) {
 	if limit == 0 {
 		limit = 100
 	}
-	rows, err := db.Query(fmt.Sprintf("select %s from urls where last_get is not null limit $1 offset $2", urlCols()), limit, offset)
+	rows, err := db.Query(fmt.Sprintf("select %s from urls where last_get is not null order by created desc limit $1 offset $2", urlCols()), limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +69,7 @@ func UnfetchedUrls(db sqlQueryable, limit int) ([]*Url, error) {
 	if limit == 0 {
 		limit = 50
 	}
-	rows, err := db.Query(fmt.Sprintf("select %s from urls where last_get is null limit $1", urlCols()), limit)
+	rows, err := db.Query(fmt.Sprintf("select %s from urls where last_get is null order by created desc limit $1", urlCols()), limit)
 	if err != nil {
 		return nil, err
 	}
