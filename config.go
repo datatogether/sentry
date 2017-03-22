@@ -118,6 +118,7 @@ func initConfig(mode string) (cfg *config, err error) {
 	cfg.HttpAuthPassword = readEnvString("HTTP_AUTH_PASSWORD", cfg.HttpAuthPassword)
 	cfg.AwsAccessKeyId = readEnvString("AWS_ACCESS_KEY_ID", cfg.AwsAccessKeyId)
 	cfg.AwsSecretAccessKey = readEnvString("AWS_SECRET_ACCESS_KEY", cfg.AwsSecretAccessKey)
+	cfg.CertbotResponse = readEnvString("CERTBOT_RESPONSE", cfg.CertbotResponse)
 	// cfg.StaleDuration = readEnvInt("STALE_DURATION", cfg.StaleDuration)
 
 	// make sure port is set
