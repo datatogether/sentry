@@ -3,26 +3,28 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/qri-io/archive"
 	"io"
 	"net/http"
 	"net/url"
-	"text/template"
-
-	"github.com/julienschmidt/httprouter"
 )
 
-// templates is a collection of views for rendering with the renderTemplate function
-// see homeHandler for an example
-var templates = template.Must(template.ParseFiles(
-	"views/index.html",
-	"views/accessDenied.html",
-	"views/notFound.html",
-	"views/urls.html",
-))
+// HealthCheckHandler is a basic "hey I'm fine" for load balancers & co
+// TODO - add Database connection & proper configuration checks here for more accurate
+// health reporting
+func HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{ "status" : 200 }`))
+}
+
+// CertbotHandler pipes the certbot response for manual certificate generation
+func CertbotHandler(w http.ResponseWriter, r *http.Request) {
+	io.WriteString(w, cfg.CertbotResponse)
+}
 
 // ListPrimers
-func ListPrimersHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	list, err := ListPrimers(appDB, 25, 0)
+func ListPrimersHandler(w http.ResponseWriter, r *http.Request) {
+	list, err := archive.ListPrimers(appDB, 25, 0)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		io.WriteString(w, err.Error())
@@ -41,7 +43,7 @@ func ListPrimersHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Par
 
 // TODO - fix
 // AddPrimerHandler adds a primer for crawling.
-// func AddPrimerHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+// func AddPrimerHandler(w http.ResponseWriter, r *http.Request) {
 // 	parsed, err := url.Parse(r.FormValue("url"))
 // 	if err != nil {
 // 		w.WriteHeader(http.StatusBadRequest)
@@ -63,13 +65,13 @@ func ListPrimersHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Par
 // 	w.WriteHeader(http.StatusOK)
 // }
 
-func MemStatsHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func MemStatsHandler(w http.ResponseWriter, r *http.Request) {
 	mu.Lock()
 	w.Write(memStats(nil))
 	mu.Unlock()
 }
 
-func EnquedHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func EnquedHandler(w http.ResponseWriter, r *http.Request) {
 	mu.Lock()
 	w.Write(enquedUrls())
 	mu.Unlock()
@@ -79,7 +81,7 @@ func reqUrl(r *http.Request) (*url.URL, error) {
 	return url.Parse(r.FormValue("url"))
 }
 
-func SeedUrlHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func SeedUrlHandler(w http.ResponseWriter, r *http.Request) {
 	if queue != nil {
 		// u, err := NormalizeURLString(r.FormValue("url"))
 		u, err := reqUrl(r)
@@ -97,196 +99,195 @@ func SeedUrlHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 	}
 }
 
-func ArchiveUrlHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	done := func(err error) {}
-	res, _, err := ArchiveUrl(appDB, r.FormValue("url"), done)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		io.WriteString(w, fmt.Sprintf("archive url '%s' error: %s", r.FormValue("url"), err.Error()))
-		return
-	}
+// func ArchiveUrlHandler(w http.ResponseWriter, r *http.Request) {
+// 	done := func(err error) {}
+// 	res, _, err := ArchiveUrl(appDB, r.FormValue("url"), done)
+// 	if err != nil {
+// 		w.WriteHeader(http.StatusBadRequest)
+// 		io.WriteString(w, fmt.Sprintf("archive url '%s' error: %s", r.FormValue("url"), err.Error()))
+// 		return
+// 	}
 
-	data, err := json.MarshalIndent(res.Url, "", "  ")
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		io.WriteString(w, fmt.Sprintf("error marshalling url json: %s", err.Error()))
-		return
-	}
+// 	data, err := json.MarshalIndent(res.Url, "", "  ")
+// 	if err != nil {
+// 		w.WriteHeader(http.StatusInternalServerError)
+// 		io.WriteString(w, fmt.Sprintf("error marshalling url json: %s", err.Error()))
+// 		return
+// 	}
 
-	w.WriteHeader(http.StatusOK)
-	w.Write(data)
+// 	w.WriteHeader(http.StatusOK)
+// 	w.Write(data)
+// }
+
+// func UrlMetadataHandler(w http.ResponseWriter, r *http.Request) {
+// 	reqUrl, err := reqUrl(r)
+// 	if err != nil {
+// 		w.WriteHeader(http.StatusBadRequest)
+// 		io.WriteString(w, fmt.Sprintf("'%s' is not a valid url", r.FormValue("url")))
+// 		return
+// 	}
+
+// 	u := &archive.Url{Url: reqUrl.String()}
+// 	if err := u.Read(appDB); err != nil {
+// 		w.WriteHeader(http.StatusBadRequest)
+// 		io.WriteString(w, fmt.Sprintf("read url '%s' err: %s", reqUrl.String(), err.Error()))
+// 		return
+// 	}
+
+// 	meta, err := u.Metadata(appDB)
+// 	if err != nil {
+// 		w.WriteHeader(http.StatusInternalServerError)
+// 		io.WriteString(w, fmt.Sprintf("read url '%s' err: %s", reqUrl.String(), err.Error()))
+// 		return
+// 	}
+
+// 	data, err := json.MarshalIndent(meta, "", "  ")
+// 	if err != nil {
+// 		w.WriteHeader(http.StatusInternalServerError)
+// 		io.WriteString(w, fmt.Sprintf("encode json error: %s", err.Error()))
+// 		return
+// 	}
+
+// 	w.WriteHeader(http.StatusOK)
+// 	w.Header().Add("Content-Type", "application/json")
+// 	w.Write(data)
+// }
+
+// func SaveUrlContextHandler(w http.ResponseWriter, r *http.Request) {
+// 	uc := &UrlContext{}
+// 	if err := json.NewDecoder(r.Body).Decode(uc); err != nil {
+// 		w.WriteHeader(http.StatusBadRequest)
+// 		io.WriteString(w, fmt.Sprintf("json formatting error: %s", err.Error()))
+// 		return
+// 	}
+// 	r.Body.Close()
+
+// 	if err := uc.Save(appDB); err != nil {
+// 		w.WriteHeader(http.StatusBadRequest)
+// 		io.WriteString(w, fmt.Sprintf("error saving context: %s", err.Error()))
+// 		return
+// 	}
+
+// 	w.WriteHeader(200)
+// 	w.Header().Add("Content-Type", "application/json")
+// 	if err := json.NewEncoder(w).Encode(uc); err != nil {
+// 		logger.Println(err.Error())
+// 	}
+// }
+
+// func DeleteUrlContextHandler(w http.ResponseWriter, r *http.Request) {
+// 	uc := &UrlContext{}
+// 	if err := json.NewDecoder(r.Body).Decode(uc); err != nil {
+// 		w.WriteHeader(http.StatusBadRequest)
+// 		io.WriteString(w, fmt.Sprintf("json formatting error: %s", err.Error()))
+// 		return
+// 	}
+// 	r.Body.Close()
+
+// 	if err := uc.Delete(appDB); err != nil {
+// 		w.WriteHeader(http.StatusBadRequest)
+// 		io.WriteString(w, fmt.Sprintf("error saving context: %s", err.Error()))
+// 		return
+// 	}
+
+// 	w.WriteHeader(200)
+// 	io.WriteString(w, "url deleted")
+// }
+
+// func UrlSetMetadataHandler(w http.ResponseWriter, r *http.Request) {
+// 	reqUrl, err := reqUrl(r)
+// 	if err != nil {
+// 		w.WriteHeader(http.StatusBadRequest)
+// 		io.WriteString(w, fmt.Sprintf("'%s' is not a valid url", r.FormValue("url")))
+// 		return
+// 	}
+
+// 	u := &Url{Url: reqUrl.String()}
+// 	if err := u.Read(appDB); err != nil {
+// 		w.WriteHeader(http.StatusBadRequest)
+// 		io.WriteString(w, fmt.Sprintf("read url '%s' err: %s", reqUrl.String(), err.Error()))
+// 		return
+// 	}
+
+// 	defer r.Body.Close()
+// 	meta := []interface{}{}
+// 	if err := json.NewDecoder(r.Body).Decode(&meta); err != nil {
+// 		w.WriteHeader(http.StatusBadRequest)
+// 		io.WriteString(w, fmt.Sprintf("json parse err: %s", err.Error()))
+// 		return
+// 	}
+// 	u.Meta = meta
+
+// 	if err := u.Update(appDB); err != nil {
+// 		w.WriteHeader(http.StatusInternalServerError)
+// 		io.WriteString(w, fmt.Sprintf("save url error: %s", err.Error()))
+// 		return
+// 	}
+
+// 	m, err := u.Metadata(appDB)
+// 	if err != nil {
+// 		w.WriteHeader(http.StatusInternalServerError)
+// 		io.WriteString(w, fmt.Sprintf("url metadata error: %s", err.Error()))
+// 		return
+// 	}
+// 	data, err := json.Marshal(m)
+// 	if err != nil {
+// 		w.WriteHeader(http.StatusInternalServerError)
+// 		io.WriteString(w, fmt.Sprintf("encode json error: %s", err.Error()))
+// 		return
+// 	}
+
+// 	w.WriteHeader(http.StatusOK)
+// 	w.Header().Add("Content-Type", "application/json")
+// 	w.Write(data)
+// }
+
+func NotFoundHandler(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotFound)
+	w.Write([]byte("not found\n"))
 }
 
-func EnqueUrlHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	parsed, err := url.Parse(r.FormValue("url"))
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		io.WriteString(w, fmt.Sprintf("parse url '%s' error: %s", r.FormValue("url"), err.Error()))
-		return
+func ShutdownHandler(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case "POST":
+		stopCrawler <- true
+		w.Write([]byte("shutting down\n"))
+	default:
+		NotFoundHandler(w, r)
 	}
-
-	logger.Printf("enquing url: %s", parsed.String())
-	queue.SendStringGet(parsed.String())
-	w.WriteHeader(http.StatusOK)
-}
-
-func UrlMetadataHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	reqUrl, err := reqUrl(r)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		io.WriteString(w, fmt.Sprintf("'%s' is not a valid url", r.FormValue("url")))
-		return
-	}
-
-	u := &Url{Url: reqUrl.String()}
-	if err := u.Read(appDB); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		io.WriteString(w, fmt.Sprintf("read url '%s' err: %s", reqUrl.String(), err.Error()))
-		return
-	}
-
-	meta, err := u.Metadata(appDB)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		io.WriteString(w, fmt.Sprintf("read url '%s' err: %s", reqUrl.String(), err.Error()))
-		return
-	}
-
-	data, err := json.MarshalIndent(meta, "", "  ")
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		io.WriteString(w, fmt.Sprintf("encode json error: %s", err.Error()))
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	w.Header().Add("Content-Type", "application/json")
-	w.Write(data)
-}
-
-func SaveUrlContextHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	uc := &UrlContext{}
-	if err := json.NewDecoder(r.Body).Decode(uc); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		io.WriteString(w, fmt.Sprintf("json formatting error: %s", err.Error()))
-		return
-	}
-	r.Body.Close()
-
-	if err := uc.Save(appDB); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		io.WriteString(w, fmt.Sprintf("error saving context: %s", err.Error()))
-		return
-	}
-
-	w.WriteHeader(200)
-	w.Header().Add("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(uc); err != nil {
-		logger.Println(err.Error())
-	}
-}
-
-func DeleteUrlContextHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	uc := &UrlContext{}
-	if err := json.NewDecoder(r.Body).Decode(uc); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		io.WriteString(w, fmt.Sprintf("json formatting error: %s", err.Error()))
-		return
-	}
-	r.Body.Close()
-
-	if err := uc.Delete(appDB); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		io.WriteString(w, fmt.Sprintf("error saving context: %s", err.Error()))
-		return
-	}
-
-	w.WriteHeader(200)
-	io.WriteString(w, "url deleted")
-}
-
-func UrlSetMetadataHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	reqUrl, err := reqUrl(r)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		io.WriteString(w, fmt.Sprintf("'%s' is not a valid url", r.FormValue("url")))
-		return
-	}
-
-	u := &Url{Url: reqUrl.String()}
-	if err := u.Read(appDB); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		io.WriteString(w, fmt.Sprintf("read url '%s' err: %s", reqUrl.String(), err.Error()))
-		return
-	}
-
-	defer r.Body.Close()
-	meta := []interface{}{}
-	if err := json.NewDecoder(r.Body).Decode(&meta); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		io.WriteString(w, fmt.Sprintf("json parse err: %s", err.Error()))
-		return
-	}
-	u.Meta = meta
-
-	if err := u.Update(appDB); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		io.WriteString(w, fmt.Sprintf("save url error: %s", err.Error()))
-		return
-	}
-
-	m, err := u.Metadata(appDB)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		io.WriteString(w, fmt.Sprintf("url metadata error: %s", err.Error()))
-		return
-	}
-	data, err := json.Marshal(m)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		io.WriteString(w, fmt.Sprintf("encode json error: %s", err.Error()))
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	w.Header().Add("Content-Type", "application/json")
-	w.Write(data)
-}
-
-func ShutdownHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	stopCrawler <- true
-	w.Write([]byte("shutting down"))
 }
 
 // HomeHandler renders the home page
-func HomeHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	renderTemplate(w, "index.html")
+func HomeHandler(w http.ResponseWriter, r *http.Request) {
+	io.WriteString(w, "hi there!")
 }
 
-func UrlsViewHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	urls, err := ListUrls(appDB, 200, 0)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+func UrlsHandler(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case "GET":
+		urls, err := archive.ListUrls(appDB, 200, 0)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			logger.Println(err.Error())
+			return
+		}
 
-	err = templates.ExecuteTemplate(w, "urls.html", urls)
-	if err != nil {
-		logger.Println(err.Error())
-		return
+		data, err := json.MarshalIndent(urls, "", "  ")
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			logger.Println(err.Error())
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		w.Write(data)
+	default:
+		NotFoundHandler(w, r)
 	}
 }
 
-// renderTemplate renders a template with the values of cfg.TemplateData
-func renderTemplate(w http.ResponseWriter, tmpl string) {
-	err := templates.ExecuteTemplate(w, tmpl, cfg.TemplateData)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-}
-
-func HandleCrawlingUrls(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	urls, err := CrawlingUrls(appDB)
+func HandleCrawlingUrls(w http.ResponseWriter, r *http.Request) {
+	urls, err := archive.CrawlingUrls(appDB)
 	if err != nil {
 		w.WriteHeader(500)
 		w.Write([]byte(err.Error()))

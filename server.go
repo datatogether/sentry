@@ -7,8 +7,6 @@ import (
 	"net/http"
 	"os"
 	"time"
-
-	"github.com/julienschmidt/httprouter"
 )
 
 var (
@@ -42,48 +40,36 @@ func main() {
 		go startCrawling()
 	}
 
-	// initialize a router to handle requests
-	r := httprouter.New()
-
-	// home handler, wrapped in middlware func
-	r.GET("/", middleware(HandleCrawlingUrls))
+	s := &http.Server{}
+	m := http.NewServeMux()
+	m.HandleFunc("/.well-known/acme-challenge/", CertbotHandler)
+	m.Handle("/", middleware(HealthCheckHandler))
 
 	// Seed a url to the crawler
-	r.POST("/seed", middleware(SeedUrlHandler))
+	// r.POST("/seed", middleware(SeedUrlHandler))
 
 	// List domains
-	r.GET("/primers", middleware(ListPrimersHandler))
+	m.Handle("/primers", middleware(ListPrimersHandler))
 	// Add a crawling domain
 	// r.POST("/primers", middleware(AddPrimerHandler))
 
-	r.GET("/urls", middleware(UrlsViewHandler))
-	r.GET("/url", middleware(UrlMetadataHandler))
-	r.POST("/url/meta", middleware(UrlSetMetadataHandler))
+	// m.Handle("/urls", middleware(UrlsHandler))
+	// m.Handle("/url", middleware(UrlHandler))
+	m.Handle("/mem", middleware(MemStatsHandler))
+	m.Handle("/que", middleware(EnquedHandler))
+	// r.POST("/que", middleware(EnqueUrlHandler))
+	m.Handle("/shutdown", middleware(ShutdownHandler))
 
-	r.POST("/context", middleware(SaveUrlContextHandler))
-	r.DELETE("/context", middleware(DeleteUrlContextHandler))
-
-	r.GET("/mem", middleware(MemStatsHandler))
-	r.GET("/que", middleware(EnquedHandler))
-	r.POST("/que", middleware(EnqueUrlHandler))
-	r.POST("/shutdown", middleware(ShutdownHandler))
-
-	r.POST("/archive", middleware(ArchiveUrlHandler))
-
-	// serve static content from public directories
-	r.ServeFiles("/css/*filepath", http.Dir("public/css"))
-	r.ServeFiles("/js/*filepath", http.Dir("public/js"))
+	// connect mux to server
+	s.Handler = m
 
 	// print notable config settings
-	printConfigInfo()
+	// printConfigInfo()
 
 	// fire it up!
 	fmt.Println("starting server on port", cfg.Port)
-	// non-tls configured servers end here
-	if !cfg.TLS {
-		logger.Fatal(StartHttpServer(cfg.Port, r))
-	}
+
 	// start server wrapped in a log.Fatal b/c http.ListenAndServe will not
 	// return unless there's an error
-	logger.Fatal(StartHttpsServer(cfg.Port, r))
+	logger.Fatal(StartServer(cfg, s))
 }

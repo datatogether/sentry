@@ -7,7 +7,6 @@ and download time. If desirable, sentry can also store the response, currently t
 
 Sentry archives urls in two ways:
 	* using a configurable built-in web crawler
-	* via direct api requests to archive a specific url.
 
 */
 package main

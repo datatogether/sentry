@@ -3,7 +3,7 @@
 
 - [x] Links-To & Links-From handlers
 - [x] Seed-Url handler
-- [x] Que Handler
+- [x] Que Handler
 - [x] Stop Handler
 - [x] Mem Stats Handler
 - [x] Sentry PDF, xml, csv, docx, save to S3

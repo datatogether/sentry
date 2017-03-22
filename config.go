@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/qri-io/archive"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -85,12 +86,11 @@ type config struct {
 	// read from env variable: HTTP_AUTH_PASSWORD
 	HttpAuthPassword string `json:"HTTP_AUTH_PASSWORD"`
 
-	// config used for rendering to templates. in config.json set
-	// template_data to an object, and anything provided there
-	// will be available to the templates in the views directory.
-	// index.html has an example of using template_data to set the "title"
-	// attribute
-	TemplateData map[string]interface{} `json:"template_data"`
+	// if true, requests that have X-Forwarded-Proto: http will be redirected
+	// to their https variant
+	ProxyForceHttps bool
+	// CertbotResponse is only for doing manual SSL certificate generation via LetsEncrypt.
+	CertbotResponse string `json:"CERTBOT_RESPONSE"`
 }
 
 // StaleDuration turns cfg.StaleDurationHours into a time.Duration
@@ -130,6 +130,13 @@ func initConfig(mode string) (cfg *config, err error) {
 		"POSTGRES_DB_URL": cfg.PostgresDbUrl,
 		"PUBLIC_KEY":      cfg.PublicKey,
 	})
+
+	// transfer settings to archive library
+	archive.AwsRegion = cfg.AwsRegion
+	archive.AwsAccessKeyId = cfg.AwsAccessKeyId
+	archive.AwsS3BucketName = cfg.AwsS3BucketName
+	archive.AwsS3BucketPath = cfg.AwsS3BucketPath
+	archive.AwsSecretAccessKey = cfg.AwsSecretAccessKey
 
 	return
 }

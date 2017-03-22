@@ -10,14 +10,13 @@ import (
 	"golang.org/x/crypto/acme/autocert"
 )
 
-// StartHttpServer fires up an http server on port, with a given handler
-func StartHttpServer(port string, handler http.Handler) error {
-	return http.ListenAndServe(fmt.Sprintf(":%s", port), handler)
-}
+func StartServer(c *config, s *http.Server) error {
+	s.Addr = fmt.Sprintf(fmt.Sprintf(":%s", c.Port))
 
-// Start an HTTPS server on port
-// worthwhile reading from Filippo: https://blog.cloudflare.com/exposing-go-on-the-internet/
-func StartHttpsServer(port string, handler http.Handler) error {
+	if !c.TLS {
+		return s.ListenAndServe()
+	}
+
 	certCache := "/tmp/certs"
 	key, cert := "", ""
 
@@ -31,22 +30,19 @@ func StartHttpsServer(port string, handler http.Handler) error {
 	// Attempt to boot a port 80 https redirect
 	go func() { HttpsRedirect() }()
 
-	server := &http.Server{
-		Addr: fmt.Sprintf(":%s", port),
-		TLSConfig: &tls.Config{
-			GetCertificate: certManager.GetCertificate,
-			// Causes servers to use Go's default ciphersuite preferences,
-			// which are tuned to avoid attacks. Does nothing on clients.
-			PreferServerCipherSuites: true,
-			// Only use curves which have assembly implementations
-			CurvePreferences: []tls.CurveID{
-				tls.CurveP256,
-				tls.X25519,
-			},
+	s.TLSConfig = &tls.Config{
+		GetCertificate: certManager.GetCertificate,
+		// Causes servers to use Go's default ciphersuite preferences,
+		// which are tuned to avoid attacks. Does nothing on clients.
+		PreferServerCipherSuites: true,
+		// Only use curves which have assembly implementations
+		CurvePreferences: []tls.CurveID{
+			tls.CurveP256,
+			tls.X25519,
 		},
 	}
-	server.Handler = handler
-	return server.ListenAndServeTLS(cert, key)
+
+	return s.ListenAndServeTLS(cert, key)
 }
 
 // Redirect HTTP to https if port 80 is open

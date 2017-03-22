@@ -2,7 +2,9 @@ package main
 
 import (
 	"bytes"
+	"database/sql"
 	"fmt"
+	"github.com/qri-io/archive"
 	"net/http"
 	"net/url"
 	"runtime"
@@ -47,7 +49,7 @@ func startCrawling() {
 	mux.Response().Method("GET").ContentType("text/html").Handler(fetchbot.HandlerFunc(
 		func(ctx *fetchbot.Context, res *http.Response, err error) {
 
-			u := &Url{Url: ctx.Cmd.URL().String()}
+			u := &archive.Url{Url: ctx.Cmd.URL().String()}
 			if err := u.Read(appDB); err != nil {
 				// logger.Printf("[ERR] url read error: %s - (%s) - %s\n", ctx.Cmd.URL(), NormalizeURL(ctx.Cmd.URL()), err)
 				logger.Printf("[ERR] url read error: %s - %s\n", u.Url, err)
@@ -64,7 +66,7 @@ func startCrawling() {
 				}
 			}
 
-			links, err := u.handleGetResponse(appDB, res, done)
+			links, err := u.HandleGetResponse(appDB, res, done)
 			if err != nil {
 				fmt.Println(err.Error())
 				return
@@ -81,7 +83,8 @@ func startCrawling() {
 	mux.Response().Method("HEAD").ContentType("text/html").Handler(fetchbot.HandlerFunc(
 		func(ctx *fetchbot.Context, res *http.Response, err error) {
 			addr := ctx.Cmd.URL()
-			u := &Url{Url: addr.String()}
+
+			u := &archive.Url{Url: addr.String()}
 
 			mu.Lock()
 			enqued[u.Url] = ""
@@ -153,8 +156,8 @@ func startCrawling() {
 	q.Block()
 }
 
-func seedCrawlingUrls(db sqlQueryExecable, q *fetchbot.Queue) error {
-	urls, err := CrawlingUrls(db)
+func seedCrawlingUrls(db *sql.DB, q *fetchbot.Queue) error {
+	urls, err := archive.CrawlingUrls(db)
 	if err != nil {
 		return err
 	}
@@ -203,11 +206,11 @@ func urlIsWhitelisted(u *url.URL) bool {
 }
 
 // try to read a list of unfetched known urls
-func seedUrls(db sqlQueryExecable, q *fetchbot.Queue, count int) error {
+func seedUrls(db *sql.DB, q *fetchbot.Queue, count int) error {
 	mu.Lock()
 	defer mu.Unlock()
 
-	if ufd, err := UnfetchedUrls(db, count); err == nil && len(ufd) >= 0 {
+	if ufd, err := archive.UnfetchedUrls(db, count); err == nil && len(ufd) >= 0 {
 		i := 0
 		for _, unfetched := range ufd {
 			u, err := unfetched.ParsedUrl()
@@ -228,7 +231,7 @@ func seedUrls(db sqlQueryExecable, q *fetchbot.Queue, count int) error {
 	return nil
 }
 
-func enqueueDomainGet(u *Url, ctx *fetchbot.Context) error {
+func enqueueDomainGet(u *archive.Url, ctx *fetchbot.Context) error {
 	// logger.Printf("url: %s, should head: %t, isFetchable: %t", u.Url, u.ShouldEnqueueHead(), u.isFetchable())
 	if enqued[u.Url] == "" && u.ShouldEnqueueGet() {
 		_, err := ctx.Q.SendStringGet(u.Url)
@@ -242,13 +245,13 @@ func enqueueDomainGet(u *Url, ctx *fetchbot.Context) error {
 	return nil
 }
 
-func enqueueDstLinks(links []*Link, ctx *fetchbot.Context) error {
+func enqueueDstLinks(links []*archive.Link, ctx *fetchbot.Context) error {
 	mu.Lock()
 	defer mu.Unlock()
 
 	for _, l := range links {
 		// logger.Printf("url: %s, should head: %t, isFetchable: %t", l.Dst.Url, l.Dst.ShouldEnqueueHead(), l.Dst.isFetchable())
-		if enqued[u.Url] == "" && l.Dst.ShouldEnqueueHead() {
+		if enqued[l.Dst.Url] == "" && l.Dst.ShouldEnqueueHead() {
 			if _, err := ctx.Q.SendStringHead(l.Dst.Url); err != nil {
 				fmt.Printf("error: enqueue head %s - %s\n", l.Dst.Url, err)
 			} else {
