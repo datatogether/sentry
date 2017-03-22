@@ -1,18 +1,6 @@
 {
-	"URL_ROOT" : "sentry.b5",
-	"TLS" : false,
-	"AWS_REGION" : "us-east-1",
-	"AWS_S3_BUCKET_NAME" : "edgi.qri.io",
-	"AWS_S3_BUCKET_PATH" : "sentry",
-
-	"HTTP_AUTH_USERNAME" : "",
-	"HTTP_AUTH_PASSWORD" : "",
-
-	"POSTGRES_DB_URL" : "postgresql://b5@localhost:5432/sentry?sslmode=disable",
-	"PUBLIC_KEY" : "nothing_yet",
-
 	"crawl" : true,
 	"polite" : false,
-	"stale_duration_hours"  : 300,
+	"stale_duration_hours"  : 72,
 	"crawl_delay_seconds" : 5
 }

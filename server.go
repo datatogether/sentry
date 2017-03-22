@@ -53,7 +53,7 @@ func main() {
 	// Add a crawling domain
 	// r.POST("/primers", middleware(AddPrimerHandler))
 
-	// m.Handle("/urls", middleware(UrlsHandler))
+	m.Handle("/urls", middleware(UrlsHandler))
 	// m.Handle("/url", middleware(UrlHandler))
 	m.Handle("/mem", middleware(MemStatsHandler))
 	m.Handle("/que", middleware(EnquedHandler))

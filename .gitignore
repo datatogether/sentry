@@ -2,5 +2,4 @@
 gin-bin
 sentry
 coverage.out
-config.production.json
-
+config.*.json

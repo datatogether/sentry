@@ -7,7 +7,17 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 )
+
+func reqParamInt(key string, r *http.Request) (int, error) {
+	i, err := strconv.ParseInt(r.FormValue(key), 10, 0)
+	return int(i), err
+}
+
+func reqParamBool(key string, r *http.Request) (bool, error) {
+	return strconv.ParseBool(r.FormValue(key))
+}
 
 // HealthCheckHandler is a basic "hey I'm fine" for load balancers & co
 // TODO - add Database connection & proper configuration checks here for more accurate
@@ -40,30 +50,6 @@ func ListPrimersHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Write(data)
 }
-
-// TODO - fix
-// AddPrimerHandler adds a primer for crawling.
-// func AddPrimerHandler(w http.ResponseWriter, r *http.Request) {
-// 	parsed, err := url.Parse(r.FormValue("url"))
-// 	if err != nil {
-// 		w.WriteHeader(http.StatusBadRequest)
-// 		io.WriteString(w, fmt.Sprintf("parse url '%s' error: %s", r.FormValue("url"), err.Error()))
-// 		return
-// 	}
-
-// 	d := &Primer{
-// 		Host:  parsed.Host,
-// 		Crawl: true,
-// 	}
-
-// 	if err := d.Insert(appDB); err != nil {
-// 		w.WriteHeader(http.StatusBadRequest)
-// 		io.WriteString(w, err.Error())
-// 		return
-// 	}
-
-// 	w.WriteHeader(http.StatusOK)
-// }
 
 func MemStatsHandler(w http.ResponseWriter, r *http.Request) {
 	mu.Lock()
@@ -99,24 +85,28 @@ func SeedUrlHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// func ArchiveUrlHandler(w http.ResponseWriter, r *http.Request) {
-// 	done := func(err error) {}
-// 	res, _, err := ArchiveUrl(appDB, r.FormValue("url"), done)
+// TODO - fix
+// AddPrimerHandler adds a primer for crawling.
+// func AddPrimerHandler(w http.ResponseWriter, r *http.Request) {
+// 	parsed, err := url.Parse(r.FormValue("url"))
 // 	if err != nil {
 // 		w.WriteHeader(http.StatusBadRequest)
-// 		io.WriteString(w, fmt.Sprintf("archive url '%s' error: %s", r.FormValue("url"), err.Error()))
+// 		io.WriteString(w, fmt.Sprintf("parse url '%s' error: %s", r.FormValue("url"), err.Error()))
 // 		return
 // 	}
 
-// 	data, err := json.MarshalIndent(res.Url, "", "  ")
-// 	if err != nil {
-// 		w.WriteHeader(http.StatusInternalServerError)
-// 		io.WriteString(w, fmt.Sprintf("error marshalling url json: %s", err.Error()))
+// 	d := &Primer{
+// 		Host:  parsed.Host,
+// 		Crawl: true,
+// 	}
+
+// 	if err := d.Insert(appDB); err != nil {
+// 		w.WriteHeader(http.StatusBadRequest)
+// 		io.WriteString(w, err.Error())
 // 		return
 // 	}
 
 // 	w.WriteHeader(http.StatusOK)
-// 	w.Write(data)
 // }
 
 // func UrlMetadataHandler(w http.ResponseWriter, r *http.Request) {
@@ -265,22 +255,53 @@ func HomeHandler(w http.ResponseWriter, r *http.Request) {
 func UrlsHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
-		urls, err := archive.ListUrls(appDB, 200, 0)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			logger.Println(err.Error())
-			return
-		}
+		// if we have a "url" param, read that single url
+		url := r.FormValue("url")
+		if url != "" {
+			u := &archive.Url{Url: url}
+			if err := u.Read(appDB); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				logger.Println(err.Error())
+				return
+			}
 
-		data, err := json.MarshalIndent(urls, "", "  ")
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			logger.Println(err.Error())
-			return
-		}
+			data, err := json.MarshalIndent(u, "", "  ")
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				logger.Println(err.Error())
+				return
+			}
 
-		w.WriteHeader(http.StatusOK)
-		w.Write(data)
+			w.WriteHeader(http.StatusOK)
+			w.Write(data)
+
+		} else {
+			p := PageFromRequest(r)
+			var (
+				urls []*archive.Url
+				err  error
+			)
+			if fetched, _ := reqParamBool("fetched", r); fetched {
+				urls, err = archive.FetchedUrls(appDB, p.Size, p.Offset())
+			} else {
+				urls, err = archive.ListUrls(appDB, p.Size, p.Offset())
+			}
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				logger.Println(err.Error())
+				return
+			}
+
+			data, err := json.MarshalIndent(urls, "", "  ")
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				logger.Println(err.Error())
+				return
+			}
+
+			w.WriteHeader(http.StatusOK)
+			w.Write(data)
+		}
 	default:
 		NotFoundHandler(w, r)
 	}

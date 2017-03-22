@@ -56,7 +56,7 @@ type Url struct {
 	// stored in the form [key,value,key,value...]
 	Headers []string `json:"headers,omitempty"`
 	// any associative metadata
-	Meta []interface{} `json:"meta,omitempty"`
+	Meta map[string]interface{} `json:"meta,omitempty"`
 
 	// Hash is a multihash sha-256 of res.Body
 	Hash string `json:"hash,omitempty"`
@@ -447,9 +447,9 @@ func (u *Url) UnmarshalSQL(row sqlScannable) (err error) {
 		}
 	}
 
-	var meta []interface{}
+	var meta map[string]interface{}
 	if metaBytes != nil {
-		meta = []interface{}{}
+		meta = map[string]interface{}{}
 		err = json.Unmarshal(metaBytes, &meta)
 		if err != nil {
 			return err
