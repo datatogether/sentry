@@ -60,6 +60,9 @@ type Url struct {
 
 	// Hash is a multihash sha-256 of res.Body
 	Hash string `json:"hash,omitempty"`
+
+	// Url to saved content
+	ContentUrl string `json:"contentUrl,omitempty"`
 }
 
 // ParsedUrl is a convenience wrapper around url.Parse
@@ -483,6 +486,10 @@ func (u *Url) UnmarshalSQL(row sqlScannable) (err error) {
 		Headers:       headers,
 		Meta:          meta,
 		Hash:          hash,
+	}
+
+	if u.Hash != "" {
+		u.ContentUrl = FileUrl(hash)
 	}
 
 	return nil

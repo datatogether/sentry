@@ -22,6 +22,15 @@ type File struct {
 	Hash string
 }
 
+func FileUrl(hash string) string {
+	f := &File{Hash: hash}
+	filename, err := f.Filename()
+	if err != nil {
+		return ""
+	}
+	return fmt.Sprintf("https://s3.amazonaws.com/%s/%s/%s", AwsS3BucketName, AwsS3BucketPath, filename)
+}
+
 // NewFileFromRes generates a new file by consuming & closing a given response body
 func NewFileFromRes(url string, res *http.Response) (*File, error) {
 	f := &File{Url: url}
