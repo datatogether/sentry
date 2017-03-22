@@ -46,7 +46,7 @@ func startCrawling() {
 	}))
 
 	// Handle GET requests for html responses, to parse the body and enqueue all links as HEAD requests.
-	mux.Response().Method("GET").ContentType("text/html").Handler(fetchbot.HandlerFunc(
+	mux.Response().Method("GET").Handler(fetchbot.HandlerFunc(
 		func(ctx *fetchbot.Context, res *http.Response, err error) {
 
 			u := &archive.Url{Url: ctx.Cmd.URL().String()}
@@ -75,33 +75,6 @@ func startCrawling() {
 			// Enqueue all links as HEAD requests
 			if err := enqueueDstLinks(links, ctx); err != nil {
 				fmt.Println(err.Error())
-			}
-		}))
-
-	mux.Response().Method("GET").Handler(fetchbot.HandlerFunc(
-		func(ctx *fetchbot.Context, res *http.Response, err error) {
-			u := &archive.Url{Url: ctx.Cmd.URL().String()}
-			logger.Printf("non-html get: %s\n", u.Url, res.Header.Get("Content-Type"))
-
-			if err := u.Read(appDB); err != nil {
-				// logger.Printf("[ERR] url read error: %s - (%s) - %s\n", ctx.Cmd.URL(), NormalizeURL(ctx.Cmd.URL()), err)
-				logger.Printf("[ERR] url read error: %s - %s\n", u.Url, err)
-				return
-			}
-
-			mu.Lock()
-			delete(enqued, u.Url)
-			mu.Unlock()
-
-			done := func(err error) {
-				if err != nil {
-					logger.Println(err.Error())
-				}
-			}
-
-			if _, err = u.HandleGetResponse(appDB, res, done); err != nil {
-				fmt.Println(err.Error())
-				return
 			}
 		}))
 
@@ -273,6 +246,10 @@ func enqueueDomainGet(u *archive.Url, ctx *fetchbot.Context) error {
 }
 
 func enqueueDstLinks(links []*archive.Link, ctx *fetchbot.Context) error {
+	if links == nil || len(links) == 0 {
+		return nil
+	}
+
 	mu.Lock()
 	defer mu.Unlock()
 
