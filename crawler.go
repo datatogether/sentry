@@ -230,7 +230,7 @@ func seedUrls(db sqlQueryExecable, q *fetchbot.Queue, count int) error {
 
 func enqueueDomainGet(u *Url, ctx *fetchbot.Context) error {
 	// logger.Printf("url: %s, should head: %t, isFetchable: %t", u.Url, u.ShouldEnqueueHead(), u.isFetchable())
-	if u.ShouldEnqueueGet() {
+	if enqued[u.Url] == "" && u.ShouldEnqueueGet() {
 		_, err := ctx.Q.SendStringGet(u.Url)
 		if err == nil {
 			mu.Lock()
@@ -248,7 +248,7 @@ func enqueueDstLinks(links []*Link, ctx *fetchbot.Context) error {
 
 	for _, l := range links {
 		// logger.Printf("url: %s, should head: %t, isFetchable: %t", l.Dst.Url, l.Dst.ShouldEnqueueHead(), l.Dst.isFetchable())
-		if l.Dst.ShouldEnqueueHead() {
+		if enqued[u.Url] == "" && l.Dst.ShouldEnqueueHead() {
 			if _, err := ctx.Q.SendStringHead(l.Dst.Url); err != nil {
 				fmt.Printf("error: enqueue head %s - %s\n", l.Dst.Url, err)
 			} else {

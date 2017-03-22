@@ -15,6 +15,7 @@ type Link struct {
 	Updated time.Time
 	Src     *Url
 	Dst     *Url
+	Text    string
 }
 
 func (l *Link) Read(db sqlQueryable) error {
