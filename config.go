@@ -142,11 +142,6 @@ func initConfig(mode string) (cfg *config, err error) {
 	archive.AwsS3BucketPath = cfg.AwsS3BucketPath
 	archive.AwsSecretAccessKey = cfg.AwsSecretAccessKey
 
-	logger.Println(archive.AwsRegion, cfg.AwsRegion)
-	logger.Println(archive.AwsAccessKeyId, cfg.AwsAccessKeyId)
-	logger.Println(archive.AwsS3BucketName, cfg.AwsS3BucketName)
-	logger.Println(archive.AwsS3BucketPath, cfg.AwsS3BucketPath)
-	logger.Println(archive.AwsSecretAccessKey, cfg.AwsSecretAccessKey)
 	return
 }
 

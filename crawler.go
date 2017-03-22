@@ -78,6 +78,33 @@ func startCrawling() {
 			}
 		}))
 
+	mux.Response().Method("GET").Handler(fetchbot.HandlerFunc(
+		func(ctx *fetchbot.Context, res *http.Response, err error) {
+			u := &archive.Url{Url: ctx.Cmd.URL().String()}
+			logger.Printf("non-html get: %s\n", u.Url, res.Header.Get("Content-Type"))
+
+			if err := u.Read(appDB); err != nil {
+				// logger.Printf("[ERR] url read error: %s - (%s) - %s\n", ctx.Cmd.URL(), NormalizeURL(ctx.Cmd.URL()), err)
+				logger.Printf("[ERR] url read error: %s - %s\n", u.Url, err)
+				return
+			}
+
+			mu.Lock()
+			delete(enqued, u.Url)
+			mu.Unlock()
+
+			done := func(err error) {
+				if err != nil {
+					logger.Println(err.Error())
+				}
+			}
+
+			if _, err = u.HandleGetResponse(appDB, res, done); err != nil {
+				fmt.Println(err.Error())
+				return
+			}
+		}))
+
 	// Handle HEAD requests for html responses coming from the source host - we don't want
 	// to crawl links from other hosts.
 	mux.Response().Method("HEAD").ContentType("text/html").Handler(fetchbot.HandlerFunc(
