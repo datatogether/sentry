@@ -3,7 +3,6 @@ package archive
 import (
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"time"
 )
 
@@ -20,7 +19,7 @@ type Collection struct {
 // Read collection from db
 func (c *Collection) Read(db sqlQueryable) error {
 	if c.Id != "" {
-		row := db.QueryRow(fmt.Sprintf("select %s from collections where id = $1", collectionCols()), c.Id)
+		row := db.QueryRow(qCollectionById, c.Id)
 		return c.UnmarshalSQL(row)
 	}
 	return ErrNotFound
@@ -34,14 +33,14 @@ func (c *Collection) Save(db sqlQueryExecable) error {
 			c.Id = NewUuid()
 			c.Created = time.Now().Round(time.Second)
 			c.Updated = c.Created
-			_, err := db.Exec(fmt.Sprintf("insert into collections (%s) values ($1, $2, $3, $4, $5, $6, $7)", collectionCols()), c.SQLArgs()...)
+			_, err := db.Exec(qCollectionInsert, c.SQLArgs()...)
 			return err
 		} else {
 			return err
 		}
 	} else {
 		c.Updated = time.Now().Round(time.Second)
-		_, err := db.Exec("update collections set created=$2, updated=$3, creator=$4, title=$5, schema=$6, contents=$7 where id = $1", c.SQLArgs()...)
+		_, err := db.Exec(qCollectionUpdate, c.SQLArgs()...)
 		return err
 	}
 	return nil
@@ -49,13 +48,8 @@ func (c *Collection) Save(db sqlQueryExecable) error {
 
 // Delete a collection, should only do for erronious additions
 func (c *Collection) Delete(db sqlQueryExecable) error {
-	_, err := db.Exec("delete from collections where id = $1", c.Id)
+	_, err := db.Exec(qCollectionDelete, c.Id)
 	return err
-}
-
-// standard-form columns for selection from postgres
-func collectionCols() string {
-	return "id, created, updated, creator, title, schema, contents"
 }
 
 // UnmarshalSQL reads an sql response into the collection receiver

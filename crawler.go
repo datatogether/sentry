@@ -210,7 +210,7 @@ func seedUrls(db *sql.DB, q *fetchbot.Queue, count int) error {
 	mu.Lock()
 	defer mu.Unlock()
 
-	if ufd, err := archive.UnfetchedUrls(db, count); err == nil && len(ufd) >= 0 {
+	if ufd, err := archive.UnfetchedUrls(db, count, 0); err == nil && len(ufd) >= 0 {
 		i := 0
 		for _, unfetched := range ufd {
 			u, err := unfetched.ParsedUrl()

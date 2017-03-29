@@ -169,7 +169,7 @@ func (u *Url) HandleGetResponse(db sqlQueryExecable, res *http.Response, done fu
 
 // InboundLinks returns a slice of url strings that link to this url
 func (u *Url) InboundLinks(db sqlQueryable) ([]string, error) {
-	res, err := db.Query("select src from links where dst = $1", u.Url)
+	res, err := db.Query(qUrlInboundLinkUrlStrings, u.Url)
 	if err != nil {
 		return nil, err
 	}
@@ -189,7 +189,7 @@ func (u *Url) InboundLinks(db sqlQueryable) ([]string, error) {
 
 // Outbound returns a slice of url strings that this url links to
 func (u *Url) OutboundLinks(db sqlQueryable) ([]string, error) {
-	res, err := db.Query("select dst from links where src = $1", u.Url)
+	res, err := db.Query(qUrlOutboundLinkUrlStrings, u.Url)
 	if err != nil {
 		return nil, err
 	}
@@ -275,7 +275,7 @@ func (u *Url) File() (*File, error) {
 // Read url from db
 func (u *Url) Read(db sqlQueryable) error {
 	if u.Url != "" {
-		row := db.QueryRow(fmt.Sprintf("select %s from urls where url = $1", urlCols()), u.Url)
+		row := db.QueryRow(qUrlByUrlString, u.Url)
 		return u.UnmarshalSQL(row)
 	}
 	return ErrNotFound
@@ -286,7 +286,7 @@ func (u *Url) Insert(db sqlQueryExecable) error {
 	u.Created = time.Now().Round(time.Second)
 	u.Updated = u.Created
 	u.Id = uuid.New()
-	_, err := db.Exec(fmt.Sprintf("insert into urls (%s) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)", urlCols()), u.SQLArgs()...)
+	_, err := db.Exec(qUrlInsert, u.SQLArgs()...)
 	return err
 }
 
@@ -299,13 +299,13 @@ func (u *Url) Update(db sqlQueryExecable) error {
 	if u.Status < -1 {
 		u.Status = -1
 	}
-	_, err := db.Exec("update urls set created=$2, updated=$3, last_head=$4, last_get=$5, status=$6, content_type=$7, content_sniff=$8, content_length=$9, title=$10, id=$11, headers_took=$12, download_took=$13, headers=$14, meta=$15, hash=$16 where url = $1", u.SQLArgs()...)
+	_, err := db.Exec(qUrlUpdate, u.SQLArgs()...)
 	return err
 }
 
 // Delete a url, should only do for erronious additions
 func (u *Url) Delete(db sqlQueryExecable) error {
-	_, err := db.Exec("delete from urls where url = $1", u.Url)
+	_, err := db.Exec(qUrlDelete, u.Url)
 	return err
 }
 
@@ -415,11 +415,6 @@ func (u *Url) HeadersMap() (headers map[string]string) {
 // 		OutboundLinks: obl,
 // 	}, nil
 // }
-
-// standard-form columns for selection from postgres
-func urlCols() string {
-	return "url, created, updated, last_head, last_get, status, content_type, content_sniff, content_length, title, id, headers_took, download_took, headers, meta, hash"
-}
 
 // UnmarshalSQL reads an sql response into the url receiver
 // it expects the request to have used urlCols() for selection

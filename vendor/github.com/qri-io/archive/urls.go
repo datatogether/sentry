@@ -2,19 +2,18 @@ package archive
 
 import (
 	"database/sql"
-	"fmt"
 )
 
-func CrawlingUrls(db sqlQueryable) ([]*Subprimer, error) {
-	rows, err := db.Query(fmt.Sprintf("select %s from subprimers where crawl = true", subprimerCols()))
+func CrawlingUrls(db sqlQueryable) ([]*Source, error) {
+	rows, err := db.Query(qSourceCrawlingUrls)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	urls := make([]*Subprimer, 0)
+	urls := make([]*Source, 0)
 	for rows.Next() {
-		c := &Subprimer{}
+		c := &Source{}
 		if err := c.UnmarshalSQL(rows); err != nil {
 			return nil, err
 		}
@@ -23,32 +22,28 @@ func CrawlingUrls(db sqlQueryable) ([]*Subprimer, error) {
 	return urls, nil
 }
 
+func RecentContentUrls(db sqlQueryable, limit, skip int) ([]*Url, error) {
+	rows, err := db.Query(qContentUrlsList, limit, skip)
+	if err != nil {
+		return nil, err
+	}
+	return UnmarshalBoundedUrls(rows, limit)
+}
+
 func ListUrls(db sqlQueryable, limit, skip int) ([]*Url, error) {
-	rows, err := db.Query(fmt.Sprintf("select %s from urls order by created desc limit $1 offset $2", urlCols()), limit, skip)
+	rows, err := db.Query(qUrlsList, limit, skip)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-
-	urls := make([]*Url, limit)
-	i := 0
-	for rows.Next() {
-		u := &Url{}
-		if err := u.UnmarshalSQL(rows); err != nil {
-			return nil, err
-		}
-		urls[i] = u
-		i++
-	}
-
-	return urls[:i], nil
+	return UnmarshalBoundedUrls(rows, limit)
 }
 
 func FetchedUrls(db sqlQueryable, limit, offset int) ([]*Url, error) {
 	if limit == 0 {
 		limit = 100
 	}
-	rows, err := db.Query(fmt.Sprintf("select %s from urls where last_get is not null order by created desc limit $1 offset $2", urlCols()), limit, offset)
+	rows, err := db.Query(qUrlsFetched, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -65,11 +60,11 @@ func FetchedUrls(db sqlQueryable, limit, offset int) ([]*Url, error) {
 	return urls, nil
 }
 
-func UnfetchedUrls(db sqlQueryable, limit int) ([]*Url, error) {
+func UnfetchedUrls(db sqlQueryable, limit, offset int) ([]*Url, error) {
 	if limit == 0 {
 		limit = 50
 	}
-	rows, err := db.Query(fmt.Sprintf("select %s from urls where last_get is null order by created desc limit $1", urlCols()), limit)
+	rows, err := db.Query(qUrlsUnfetched, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -87,11 +82,27 @@ func UnfetchedUrls(db sqlQueryable, limit int) ([]*Url, error) {
 }
 
 func UrlsForHash(db sqlQueryable, hash string) ([]*Url, error) {
-	rows, err := db.Query(fmt.Sprintf("select %s from urls where hash = $1", urlCols()), hash)
+	rows, err := db.Query(qUrlsForHash, hash)
 	if err != nil {
 		return nil, err
 	}
 	return UnmarshalUrls(rows)
+}
+
+func UnmarshalBoundedUrls(rows *sql.Rows, limit int) ([]*Url, error) {
+	defer rows.Close()
+	urls := make([]*Url, limit)
+	i := 0
+	for rows.Next() {
+		u := &Url{}
+		if err := u.UnmarshalSQL(rows); err != nil {
+			return nil, err
+		}
+		urls[i] = u
+		i++
+	}
+
+	return urls[:i], nil
 }
 
 // UnmarshalUrls takes an sql cursor & returns a slice of url pointers

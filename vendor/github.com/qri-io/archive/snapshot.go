@@ -22,19 +22,9 @@ type Snapshot struct {
 	Hash string `json:"hash,omitempty"`
 }
 
-// WriteSnapshot creates a snapshot record in the DB from a given Url struct
-func WriteSnapshot(db sqlQueryExecable, u *Url) error {
-	data, err := json.Marshal(u.Headers)
-	if err != nil {
-		return err
-	}
-	_, err = db.Exec("insert into snapshots values ($1, $2, $3, $4, $5, $6)", u.Url, u.LastGet.In(time.UTC).Round(time.Second), u.Status, u.DownloadTook, data, u.Hash)
-	return err
-}
-
 // SnapshotsForUrl returns all snapshots for a given url string
 func SnapshotsForUrl(db sqlQueryable, url string) ([]*Snapshot, error) {
-	res, err := db.Query("select url, created, status, duration, hash, headers from snapshots where url = $1", url)
+	res, err := db.Query(qSnapshotsByUrl, url)
 	if err != nil {
 		return nil, err
 	}
@@ -50,6 +40,16 @@ func SnapshotsForUrl(db sqlQueryable, url string) ([]*Snapshot, error) {
 	}
 
 	return snapshots, nil
+}
+
+// WriteSnapshot creates a snapshot record in the DB from a given Url struct
+func WriteSnapshot(db sqlQueryExecable, u *Url) error {
+	data, err := json.Marshal(u.Headers)
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(qSnapshotInsert, u.Url, u.LastGet.In(time.UTC).Round(time.Second), u.Status, u.DownloadTook, data, u.Hash)
+	return err
 }
 
 // UnmarshalSQL reads an SQL result into the snapshot receiver

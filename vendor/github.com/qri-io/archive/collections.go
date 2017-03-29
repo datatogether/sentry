@@ -1,11 +1,7 @@
 package archive
 
-import (
-	"fmt"
-)
-
 func ListCollections(db sqlQueryable, limit, skip int) ([]*Collection, error) {
-	rows, err := db.Query(fmt.Sprintf("SELECT %s FROM collections ORDER BY created DESC LIMIT $1 OFFSET $2", collectionCols()), limit, skip)
+	rows, err := db.Query(qCollections, limit, skip)
 	if err != nil {
 		return nil, err
 	}

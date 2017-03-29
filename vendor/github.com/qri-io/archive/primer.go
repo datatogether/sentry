@@ -2,45 +2,78 @@ package archive
 
 import (
 	"database/sql"
-	"fmt"
+	"encoding/json"
 	"github.com/pborman/uuid"
 	"time"
 )
 
 // Primer is tracking information about a base URL
 type Primer struct {
-	Id          string       `json:"id"`
-	Created     time.Time    `json:"created"`
-	Updated     time.Time    `json:"updated"`
-	Title       string       `json:"title"`
-	Description string       `json:"description"`
-	Subprimers  []*Subprimer `json:"subprimers"`
+	Id          string                 `json:"id"`
+	Created     time.Time              `json:"created"`
+	Updated     time.Time              `json:"updated"`
+	ShortTitle  string                 `json:"shortTitle"`
+	Title       string                 `json:"title"`
+	Description string                 `json:"description"`
+	Parent      *Primer                `json:"parent"`
+	SubPrimers  []*Primer              `json:"subPrimers,omitempty"`
+	Meta        map[string]interface{} `json:"meta"`
+	Stats       *PrimerStats           `json:"stats"`
+	Sources     []*Source              `json:"sources"`
 }
 
-// Subprimers returns the list of listed urls for crawling associated with this primer
-func (p *Primer) ReadSubprimers(db sqlQueryable) error {
-	rows, err := db.Query(fmt.Sprintf("select %s from subprimers where primer_id = $1", subprimerCols()), p.Id)
+// TODO - finish
+type PrimerStats struct {
+	UrlCount             int `json:"urlCount"`
+	ContentUrlCount      int `json:"contentUrlCount"`
+	ContentMetadataCount int `json:"contentMetadataCount"`
+}
+
+// ReadSubPrimers reads child primers of this primer
+func (p *Primer) ReadSubPrimers(db sqlQueryable) error {
+	rows, err := db.Query(qPrimerSubPrimers, p.Id)
 	if err != nil {
 		return err
 	}
 
 	defer rows.Close()
-	urls := make([]*Subprimer, 0)
+	sps := make([]*Primer, 0)
 	for rows.Next() {
-		c := &Subprimer{}
+		c := &Primer{}
 		if err := c.UnmarshalSQL(rows); err != nil {
 			return err
 		}
-		urls = append(urls, c)
+		sps = append(sps, c)
 	}
 
-	p.Subprimers = urls
+	p.SubPrimers = sps
+	return nil
+}
+
+// ReadSources reads child sources of this primer
+func (p *Primer) ReadSources(db sqlQueryable) error {
+	rows, err := db.Query(qPrimerSources, p.Id)
+	if err != nil {
+		return err
+	}
+
+	defer rows.Close()
+	s := make([]*Source, 0)
+	for rows.Next() {
+		c := &Source{}
+		if err := c.UnmarshalSQL(rows); err != nil {
+			return err
+		}
+		s = append(s, c)
+	}
+
+	p.Sources = s
 	return nil
 }
 
 func (p *Primer) Read(db sqlQueryable) error {
 	if p.Id != "" {
-		row := db.QueryRow(fmt.Sprintf("select %s from primers where id = $1", primerCols()), p.Id)
+		row := db.QueryRow(qPrimerById, p.Id)
 		return p.UnmarshalSQL(row)
 	}
 	return ErrNotFound
@@ -53,58 +86,99 @@ func (p *Primer) Save(db sqlQueryExecable) error {
 			p.Id = uuid.New()
 			p.Created = time.Now().Round(time.Second)
 			p.Updated = p.Created
-			_, err := db.Exec(fmt.Sprintf("insert into primers (%s) values ($1, $2, $3, $4, $5)", primerCols()), p.SQLArgs()...)
+			_, err := db.Exec(qPrimerInsert, p.SQLArgs()...)
 			return err
 		} else {
 			return err
 		}
 	} else {
 		p.Updated = time.Now().Round(time.Second)
-		_, err := db.Exec("update primers set created=$2, updated = $3, title = $4, description = $5 where id = $1", p.SQLArgs()...)
+		_, err := db.Exec(qPrimerUpdate, p.SQLArgs()...)
 		return err
 	}
 	return nil
 }
 
 func (p *Primer) Delete(db sqlQueryExecable) error {
-	_, err := db.Exec("delete from primers where id = $1", p.Id)
+	_, err := db.Exec(qPrimerDelete, p.Id)
 	return err
 }
 
 func (p *Primer) UnmarshalSQL(row sqlScannable) error {
 	var (
-		id, title, description string
-		created, updated       time.Time
+		parent                                  *Primer
+		id, title, description, short, parentId string
+		created, updated                        time.Time
+		statsBytes, metaBytes                   []byte
+		meta                                    map[string]interface{}
+		stats                                   *PrimerStats
 	)
 
-	if err := row.Scan(&id, &created, &updated, &title, &description); err != nil {
+	if err := row.Scan(&id, &created, &updated, &short, &title, &description, &parentId, &statsBytes, &metaBytes); err != nil {
 		if err == sql.ErrNoRows {
 			return ErrNotFound
 		}
 		return err
 	}
 
+	if parentId != "" {
+		parent = &Primer{Id: parentId}
+	}
+
+	if metaBytes != nil {
+		if err := json.Unmarshal(metaBytes, &meta); err != nil {
+			return err
+		}
+	}
+
+	if statsBytes != nil {
+		stats = &PrimerStats{}
+		if err := json.Unmarshal(statsBytes, stats); err != nil {
+			return err
+		}
+	}
+
 	*p = Primer{
 		Id:          id,
 		Created:     created.In(time.UTC),
 		Updated:     updated.In(time.UTC),
+		ShortTitle:  short,
 		Title:       title,
 		Description: description,
+		Parent:      parent,
+		Meta:        meta,
+		Stats:       stats,
 	}
 
 	return nil
 }
 
-func primerCols() string {
-	return "id, created, updated, title, description"
-}
-
 func (p *Primer) SQLArgs() []interface{} {
+
+	parentId := ""
+	if p.Parent != nil {
+		parentId = p.Parent.Id
+	}
+
+	metaBytes, err := json.Marshal(p.Meta)
+	if err != nil {
+		panic(err)
+	}
+
+	statBytes, err := json.Marshal(p.Stats)
+	if err != nil {
+		panic(err)
+	}
+
 	return []interface{}{
 		p.Id,
 		p.Created.In(time.UTC),
 		p.Updated.In(time.UTC),
+		p.ShortTitle,
 		p.Title,
 		p.Description,
+		parentId,
+		statBytes,
+		metaBytes,
 	}
 }
