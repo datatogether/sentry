@@ -65,6 +65,35 @@ func (p *Primer) ReadSubPrimers(db sqlQueryable) error {
 	return nil
 }
 
+func (p *Primer) CalcStats(db sqlQueryExecable) error {
+	p.Stats = &PrimerStats{}
+	if err := p.ReadSources(db); err != nil {
+		return err
+	}
+	for _, s := range p.Sources {
+		if err := s.CalcStats(db); err != nil {
+			return err
+		}
+		p.Stats.UrlCount += s.Stats.UrlCount
+		p.Stats.ContentMetadataCount += s.Stats.ContentMetadataCount
+		p.Stats.ContentUrlCount += s.Stats.ContentUrlCount
+	}
+
+	if err := p.ReadSubPrimers(db); err != nil {
+		return err
+	}
+	for _, sp := range p.SubPrimers {
+		if err := sp.CalcStats(db); err != nil {
+			return err
+		}
+		p.Stats.UrlCount += sp.Stats.UrlCount
+		p.Stats.ContentMetadataCount += sp.Stats.ContentMetadataCount
+		p.Stats.ContentUrlCount += sp.Stats.ContentUrlCount
+	}
+
+	return p.Save(db)
+}
+
 // ReadSources reads child sources of this primer
 func (p *Primer) ReadSources(db sqlQueryable) error {
 	rows, err := db.Query(qPrimerSources, p.Id)

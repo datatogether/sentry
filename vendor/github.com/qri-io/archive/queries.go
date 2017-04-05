@@ -126,6 +126,17 @@ where
 order by created desc
 limit $1 offset $2;`
 
+const qBasePrimersList = `
+select
+  id, created, updated, short_title, title, description,
+  parent_id, stats, meta
+from primers
+where
+  deleted = false and
+  parent_id = ''
+order by created desc
+limit $1 offset $2;`
+
 const qSourcesList = `
 select
   id, created, updated, title, description, url, primer_id, crawl, stale_duration,

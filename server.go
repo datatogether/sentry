@@ -40,6 +40,11 @@ func main() {
 		go startCrawling()
 	}
 
+	go StartCron(time.Hour * 5)
+	// if err := CalcBasePrimerStats(); err != nil {
+	// 	logger.Println(err)
+	// }
+
 	s := &http.Server{}
 	m := http.NewServeMux()
 	m.HandleFunc("/.well-known/acme-challenge/", CertbotHandler)
