@@ -181,10 +181,8 @@ func (u *Url) HandleGetResponse(db sqlQueryExecable, res *http.Response, done fu
 
 			// attempt to set file type extenion by checking it against ffi's whitelist of extensions
 			_, err := ffi.ExtensionMimeType(ext)
-			fmt.Println(filename, notContentExtensions[ext], ext, err)
 
 			if !notContentExtensions[ext] && ext != "" && err == nil {
-				fmt.Println("setting filename")
 				u.FileName = filename
 			} else if err != nil {
 				// TODO - should this be reported as an error?

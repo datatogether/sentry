@@ -187,7 +187,7 @@
 		},
 		{
 			"ImportPath": "github.com/qri-io/archive",
-			"Rev": "abd6de0ae12213ab68d62ded343ed4f2e8f03eb1"
+			"Rev": "c80d735ce409b426f4a0e347a5caa1368a42fa4e"
 		},
 		{
 			"ImportPath": "github.com/qri-io/ffi",
