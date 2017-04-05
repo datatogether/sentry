@@ -11,10 +11,14 @@ import (
 // attribute points to the url that resolves to dst.
 // both src & dst must be stored as urls
 type Link struct {
+	// created timestamp rounded to seconds in UTC
 	Created time.Time `json:"created"`
+	// updated timestamp rounded to seconds in UTC
 	Updated time.Time `json:"updated"`
-	Src     *Url      `json:"src"`
-	Dst     *Url      `json:"dst"`
+	// origin url of the linking document
+	Src *Url `json:"src"`
+	// absolute url of the <a> href property
+	Dst *Url `json:"dst"`
 }
 
 func (l *Link) Read(db sqlQueryable) error {

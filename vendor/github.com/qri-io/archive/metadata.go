@@ -26,7 +26,7 @@ func CalcHash(data []byte) (string, error) {
 // A snapshot is a record of a GET request to a url
 // There can be many metadata of a given url
 type Metadata struct {
-	// Hash is the the sha256 multihash of all other fields in metadata
+	// Hash is the sha256 multihash of all other fields in metadata
 	// as expressed by Metadata.HashableBytes()
 	Hash string `json:"hash"`
 	// Creation timestamp

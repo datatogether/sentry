@@ -6,14 +6,25 @@ import (
 	"time"
 )
 
+// Collections are generic groupings of content
+// collections can be thought of as a csv file listing content hashes
+// as the first column, and whatever other information is necessary in
+// subsequent columns
 type Collection struct {
-	Id       string     `json:"id"`
-	Created  time.Time  `json:"created"`
-	Updated  time.Time  `json:"updated"`
-	Creator  string     `json:"creator"`
-	Title    string     `json:"title"`
-	Schema   []string   `json:"schema"`
-	Contents [][]string `json:"contents"`
+	// version 4 uuid
+	Id string `json:"id"`
+	// Created timestamp rounded to seconds in UTC
+	Created time.Time `json:"created"`
+	// Updated timestamp rounded to seconds in UTC
+	Updated time.Time `json:"updated"`
+	// sha256 multihash of the public key that created this collection
+	Creator string `json:"creator"`
+	// human-readable title of the collection
+	Title string `json:"title"`
+	// csv column headers, first value must always be "hash"
+	Schema []string `json:"schema,omitempty"`
+	// actuall collection contents
+	Contents [][]string `json:"contents,omitempty"`
 }
 
 // Read collection from db

@@ -5,8 +5,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/qri-io/ffi"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -14,8 +16,30 @@ import (
 	"github.com/pborman/uuid"
 )
 
+var unwantedMimetypes = map[string]bool{
+	"text/html":                 true,
+	"text/html; charset=utf-8":  true,
+	"text/plain; charset=utf-8": true,
+	"text/xml; charset=utf-8":   true,
+}
+
+// notContentExtensions is a dictionary of "file extensions" to ignore when
+// determining weather or not to prioritize a url for content fetching
+var notContentExtensions = map[string]bool{
+	".asp":   true,
+	".aspx":  true,
+	".cfm":   true,
+	".html":  true,
+	".net":   true,
+	".php":   true,
+	".xhtml": true,
+}
+
 // URL represents... a url.
 type Url struct {
+	// version 4 uuid
+	// urls can/should/must also be be uniquely identified by Url
+	Id string `json:"id,omitempty"`
 	// A Url is uniquely identified by URI string without
 	// any normalization. Url strings must always be absolute.
 	Url string `json:"url"`
@@ -39,12 +63,12 @@ type Url struct {
 	// After a valid GET response, it will be set to the length of the returned response
 	ContentLength int64 `json:"contentLength,omitempty"`
 
+	// best guess at a filename based on url string analysis
+	// if you just want to know what type of file this is, this is the field to use.
+	FileName string `json:"fileName,omitempty"`
+
 	// HTML Title tag attribute
 	Title string `json:"title,omitempty"`
-	// uuid assigend on creation for legacy purposes. Will be depricated in the future.
-	// content should be uniquely identified by either url (mutable) or hash (immutable)
-	// instead of uuid
-	Id string `json:"id,omitempty"`
 
 	// Time remote server took to transfer content in miliseconds.
 	// TODO - currently not implemented
@@ -63,6 +87,9 @@ type Url struct {
 
 	// Url to saved content
 	ContentUrl string `json:"contentUrl,omitempty"`
+
+	// Uncrawlable information
+	Uncrawlable *Uncrawlable `json:"uncrawlable,omitempty"`
 }
 
 // ParsedUrl is a convenience wrapper around url.Parse
@@ -145,6 +172,24 @@ func (u *Url) HandleGetResponse(db sqlQueryExecable, res *http.Response, done fu
 		links, err = u.ExtractDocLinks(db, doc)
 		if err != nil {
 			return
+		}
+
+		// handle possible content links
+	} else if !unwantedMimetypes[u.ContentSniff] {
+		if filename, err := ffi.FilenameFromUrlString(u.Url); err == nil {
+			ext := filepath.Ext(filename)
+
+			// attempt to set file type extenion by checking it against ffi's whitelist of extensions
+			_, err := ffi.ExtensionMimeType(ext)
+			fmt.Println(filename, notContentExtensions[ext], ext, err)
+
+			if !notContentExtensions[ext] && ext != "" && err == nil {
+				fmt.Println("setting filename")
+				u.FileName = filename
+			} else if err != nil {
+				// TODO - should this be reported as an error?
+				fmt.Println(err.Error())
+			}
 		}
 	}
 
@@ -258,6 +303,25 @@ func (u *Url) ShouldEnqueueGet() bool {
 	return u.isFetchable() && (u.LastGet == nil || u.LastGet.IsZero() || time.Since(*u.LastGet) > StaleDuration)
 }
 
+// SuspectedContentUrl examines the url string, returns true
+// if there's a reasonable chance the url leads to content
+func (u *Url) SuspectedContentUrl() bool {
+	if unwantedMimetypes[u.ContentSniff] {
+		return false
+	}
+
+	filename, err := ffi.FilenameFromUrlString(u.Url)
+	if err != nil {
+		return false
+	}
+
+	ext := filepath.Ext(filename)
+	if filename == "" || notContentExtensions[ext] || ext == "." || ext == "" {
+		return false
+	}
+	return true
+}
+
 // ShouldPutS3 is a chance to override weather the content should be stored
 func (u *Url) ShouldPutS3() bool {
 	return true
@@ -274,11 +338,15 @@ func (u *Url) File() (*File, error) {
 
 // Read url from db
 func (u *Url) Read(db sqlQueryable) error {
-	if u.Url != "" {
-		row := db.QueryRow(qUrlByUrlString, u.Url)
-		return u.UnmarshalSQL(row)
+	var row *sql.Row
+	if u.Id != "" {
+		row = db.QueryRow(qUrlById, u.Id)
+	} else if u.Url != "" {
+		row = db.QueryRow(qUrlByUrlString, u.Url)
+	} else {
+		return ErrNotFound
 	}
-	return ErrNotFound
+	return u.UnmarshalSQL(row)
 }
 
 // Insert (create)
@@ -420,16 +488,16 @@ func (u *Url) HeadersMap() (headers map[string]string) {
 // it expects the request to have used urlCols() for selection
 func (u *Url) UnmarshalSQL(row sqlScannable) (err error) {
 	var (
-		rawurl, mime, sniff, title, id, hash string
-		created, updated                     time.Time
-		lastGet, lastHead                    *time.Time
-		length                               int64
-		headersTook, downloadTook            int
-		headerBytes, metaBytes               []byte
-		status                               int
+		rawurl, mime, sniff, title, id, hash, fn string
+		created, updated                         time.Time
+		lastGet, lastHead                        *time.Time
+		length                                   int64
+		headersTook, downloadTook                int
+		headerBytes, metaBytes                   []byte
+		status                                   int
 	)
 
-	if err := row.Scan(&rawurl, &created, &updated, &lastHead, &lastGet, &status, &mime, &sniff, &length, &title, &id, &headersTook, &downloadTook, &headerBytes, &metaBytes, &hash); err != nil {
+	if err := row.Scan(&rawurl, &created, &updated, &lastHead, &lastGet, &status, &mime, &sniff, &length, &fn, &title, &id, &headersTook, &downloadTook, &headerBytes, &metaBytes, &hash); err != nil {
 		if err == sql.ErrNoRows {
 			return ErrNotFound
 		}
@@ -474,6 +542,7 @@ func (u *Url) UnmarshalSQL(row sqlScannable) (err error) {
 		ContentType:   mime,
 		ContentSniff:  sniff,
 		ContentLength: length,
+		FileName:      fn,
 		Title:         title,
 		Id:            id,
 		HeadersTook:   headersTook,
@@ -483,8 +552,8 @@ func (u *Url) UnmarshalSQL(row sqlScannable) (err error) {
 		Hash:          hash,
 	}
 
-	if u.Hash != "" {
-		u.ContentUrl = FileUrl(hash)
+	if u.Hash != "" && u.FileName != "" {
+		u.ContentUrl = FileUrl(u)
 	}
 
 	return nil
@@ -523,6 +592,7 @@ func (u *Url) SQLArgs() []interface{} {
 		u.ContentType,
 		u.ContentSniff,
 		u.ContentLength,
+		u.FileName,
 		u.Title,
 		u.Id,
 		u.HeadersTook,

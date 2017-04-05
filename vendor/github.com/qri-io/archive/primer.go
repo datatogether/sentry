@@ -7,19 +7,34 @@ import (
 	"time"
 )
 
-// Primer is tracking information about a base URL
+// Primer is tracking information about an abstract group of content.
+// For example a government agency is a primer
 type Primer struct {
-	Id          string                 `json:"id"`
-	Created     time.Time              `json:"created"`
-	Updated     time.Time              `json:"updated"`
-	ShortTitle  string                 `json:"shortTitle"`
-	Title       string                 `json:"title"`
-	Description string                 `json:"description"`
-	Parent      *Primer                `json:"parent"`
-	SubPrimers  []*Primer              `json:"subPrimers,omitempty"`
-	Meta        map[string]interface{} `json:"meta"`
-	Stats       *PrimerStats           `json:"stats"`
-	Sources     []*Source              `json:"sources"`
+	// version 4 uuid
+	Id string `json:"id"`
+	// Created timestamp rounded to seconds in UTC
+	Created time.Time `json:"created"`
+	// Updated timestamp rounded to seconds in UTC
+	Updated time.Time `json:"updated"`
+	// shortest possible expression of this primer's name, usually an acronym
+	// called shortTitle b/c acronyms collide often & users should feel free to
+	// expand on acronyms
+	ShortTitle string `json:"shortTitle"`
+	// human-readable title of this primer.
+	Title string `json:"title"`
+	// long-form description of this primer.
+	// TODO - Maybe we should store this in markdown format?
+	Description string `json:"description"`
+	// parent primer (if any)
+	Parent *Primer `json:"parent"`
+	// child-primers list
+	SubPrimers []*Primer `json:"subPrimers,omitempty"`
+	// metadata to associate with this primer
+	Meta map[string]interface{} `json:"meta"`
+	// statistics about this primer
+	Stats *PrimerStats `json:"stats"`
+	// collection of child sources
+	Sources []*Source `json:"sources,omitempty"`
 }
 
 // TODO - finish

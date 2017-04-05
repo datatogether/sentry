@@ -9,19 +9,36 @@ import (
 	"time"
 )
 
+// Source is a concreate handle for archiving. Crawlers use
+// source's url as a base of a link tree. Sources are connected
+// to a parent Primer to provide context & organization.
 type Source struct {
-	Id            string                 `json:"id"`
-	Created       time.Time              `json:"created"`
-	Updated       time.Time              `json:"updated"`
-	Title         string                 `json:"title"`
-	Description   string                 `json:"description"`
-	Url           string                 `json:"url"`
-	PrimerId      string                 `json:"primerId"`
-	Crawl         bool                   `json:"crawl"`
-	StaleDuration time.Duration          `json:"staleDuration"`
-	LastAlertSent *time.Time             `json:"lastAlertSent"`
-	Meta          map[string]interface{} `json:"meta"`
-	Stats         *SourceStats           `json:"stats"`
+	// version 4 uuid
+	Id string `json:"id"`
+	// Created timestamp rounded to seconds in UTC
+	Created time.Time `json:"created"`
+	// Updated timestamp rounded to seconds in UTC
+	Updated time.Time `json:"updated"`
+	// human-readable title for this source
+	Title string `json:"title"`
+	// description of the source, ideally one paragraph
+	Description string `json:"description"`
+	// absolute url to serve as the root of the
+	Url string `json:"url"`
+	// primer this source is connected to
+	PrimerId string `json:"primerId"`
+	// weather or not this url should be crawled be a web crawler
+	Crawl bool `json:"crawl"`
+	// amount of time before a link within this tree is considered in need
+	// of re-checking for changes. currently not in use, but planned.
+	StaleDuration time.Duration `json:"staleDuration"`
+	// yeah this'll probably get depricated. Part of a half-baked alerts feature idea.
+	LastAlertSent *time.Time `json:"lastAlertSent"`
+	// Metadata associated with this source that should be added to all
+	// child urls, currently not in use, but planned
+	Meta map[string]interface{} `json:"meta"`
+	// Stats about this source
+	Stats *SourceStats `json:"stats"`
 }
 
 type SourceStats struct {

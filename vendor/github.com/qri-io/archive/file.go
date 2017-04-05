@@ -22,13 +22,14 @@ type File struct {
 	Hash string
 }
 
-func FileUrl(hash string) string {
-	f := &File{Hash: hash}
-	filename, err := f.Filename()
-	if err != nil {
-		return ""
-	}
-	return fmt.Sprintf("https://s3.amazonaws.com/%s/%s/%s", AwsS3BucketName, AwsS3BucketPath, filename)
+func FileUrl(url *Url) string {
+	// f := &File{Hash: hash}
+	// filename, err := f.Filename()
+	// if err != nil {
+	// 	return ""
+	// }
+	// return fmt.Sprintf("https://s3.amazonaws.com/%s/%s/%s", AwsS3BucketName, AwsS3BucketPath, filename)
+	return fmt.Sprintf("https://content.archivers.space/urls/%s", url.Id)
 }
 
 // NewFileFromRes generates a new file by consuming & closing a given response body

@@ -19,7 +19,7 @@ var (
 	lastAlertSent *time.Time
 
 	// log output
-	logger = log.New(os.Stderr, "", log.Ldate|log.Ltime|log.Lshortfile)
+	logger = log.New(os.Stdout, "", log.Ldate|log.Ltime|log.Lshortfile)
 
 	// application database connection
 	appDB *sql.DB
@@ -49,7 +49,7 @@ func main() {
 	// r.POST("/seed", middleware(SeedUrlHandler))
 
 	// List domains
-	m.Handle("/primers", middleware(ListPrimersHandler))
+	// m.Handle("/primers", middleware(ListPrimersHandler))
 	// Add a crawling domain
 	// r.POST("/primers", middleware(AddPrimerHandler))
 

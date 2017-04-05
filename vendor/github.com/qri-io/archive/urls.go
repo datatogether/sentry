@@ -22,7 +22,7 @@ func CrawlingUrls(db sqlQueryable) ([]*Source, error) {
 	return urls, nil
 }
 
-func RecentContentUrls(db sqlQueryable, limit, skip int) ([]*Url, error) {
+func ContentUrls(db sqlQueryable, limit, skip int) ([]*Url, error) {
 	rows, err := db.Query(qContentUrlsList, limit, skip)
 	if err != nil {
 		return nil, err

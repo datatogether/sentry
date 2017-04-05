@@ -187,7 +187,11 @@
 		},
 		{
 			"ImportPath": "github.com/qri-io/archive",
-			"Rev": "1cd0f8a78da2c85302390a923377888e58160769"
+			"Rev": "abd6de0ae12213ab68d62ded343ed4f2e8f03eb1"
+		},
+		{
+			"ImportPath": "github.com/qri-io/ffi",
+			"Rev": "a3cb4cbdeec1d71910825079ec538ca4434eb524"
 		},
 		{
 			"ImportPath": "github.com/temoto/robotstxt-go",

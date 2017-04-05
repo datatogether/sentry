@@ -34,6 +34,7 @@ var (
 // startCrawling initializes the crawler, queue, stopCrawler channel, and
 // crawlingUrls slice
 func startCrawling() {
+	go startCrawlingContent()
 	// Create the muxer
 	mux := fetchbot.NewMux()
 
@@ -138,7 +139,7 @@ func startCrawling() {
 
 	// do an initial domain seed
 	seedCrawlingUrls(appDB, q)
-	seedUrls(appDB, q, 400)
+	seedUrls(appDB, q, 10)
 
 	// check to see if top levels need to be re-crawled for staleness
 	go func() {
@@ -256,6 +257,13 @@ func enqueueDstLinks(links []*archive.Link, ctx *fetchbot.Context) error {
 	for _, l := range links {
 		// logger.Printf("url: %s, should head: %t, isFetchable: %t", l.Dst.Url, l.Dst.ShouldEnqueueHead(), l.Dst.isFetchable())
 		if enqued[l.Dst.Url] == "" && l.Dst.ShouldEnqueueHead() {
+			// skip the que & go straight to content archiving if it's a
+			if l.Dst.SuspectedContentUrl() {
+				enqued[l.Dst.Url] = "GET"
+				contentQueue.SendStringGet(l.Dst.Url)
+				continue
+			}
+
 			if _, err := ctx.Q.SendStringHead(l.Dst.Url); err != nil {
 				fmt.Printf("error: enqueue head %s - %s\n", l.Dst.Url, err)
 			} else {

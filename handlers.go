@@ -32,25 +32,6 @@ func CertbotHandler(w http.ResponseWriter, r *http.Request) {
 	io.WriteString(w, cfg.CertbotResponse)
 }
 
-// ListPrimers
-func ListPrimersHandler(w http.ResponseWriter, r *http.Request) {
-	list, err := archive.ListPrimers(appDB, 25, 0)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		io.WriteString(w, err.Error())
-		return
-	}
-
-	data, err := json.MarshalIndent(list, "", "  ")
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	w.Write(data)
-}
-
 func MemStatsHandler(w http.ResponseWriter, r *http.Request) {
 	mu.Lock()
 	w.Write(memStats(nil))
