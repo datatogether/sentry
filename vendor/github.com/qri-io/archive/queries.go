@@ -379,7 +379,7 @@ where
 const qUrlDstLinks = `
 select 
   urls.url, urls.created, urls.updated, last_head, last_get, status, content_type, content_sniff, 
-  content_length, title, id, headers_took, download_took, headers, meta, hash 
+  content_length, file_name, title, id, headers_took, download_took, headers, meta, hash 
 from urls, links
 where 
   links.src = $1 and 
@@ -388,7 +388,7 @@ where
 const qUrlSrcLinks = `
 select
   urls.url, urls.created, urls.updated, last_head, last_get, status, content_type, content_sniff, 
-  content_length, title, id, headers_took, download_took, headers, meta, hash 
+  content_length, file_name, title, id, headers_took, download_took, headers, meta, hash 
 from urls, links 
 where 
   links.dst = $1 and 
