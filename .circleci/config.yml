@@ -1,0 +1,59 @@
+version: '2'
+jobs:
+  build:
+    working_directory: /go/src/github.com/archivers-space/sentry
+    docker:
+      - image: circleci/cci-demo-go-primary:0.0.2
+        environment:
+          GOLANG_ENV: test
+          BASE_URL: localhost:3000
+          PORT: 3000
+          DEBUG: false
+          POSTGRES_DB_URL: postgres://ubuntu:@localhost:5432/circle_test?sslmode=disable
+      - image: postgres:9.6.2
+        environment:
+          POSTGRES_USER: ubuntu
+          POSTGRES_DB: circle_test
+          POSTGRES_PASSWORD: ""
+    steps:
+      - checkout
+      - run:
+          name: Wait for Postgres to be ready
+          command: |
+            for i in `seq 1 10`;
+            do
+              nc -z localhost 5432 && echo Success && exit 0
+              echo -n .
+              sleep 1
+            done
+            echo Failed waiting for Postgres && exit 1
+      - run: 
+          name: Make test results directory
+          command: mkdir -p /tmp/test-reports/archivers-space
+      - run:
+          name: Install dependencies
+          command: go-wrapper download && go-wrapper install && go get -v github.com/jstemmer/go-junit-report
+      - run: 
+          name: Run tests
+          command: go test -v -race ./... | tee /tmp/test-reports/archivers-space/original.txt ; test ${PIPESTATUS[0]} -eq 0
+      - run: 
+          name: Convert test output to junit-style xml
+          command: cat /tmp/test-reports/archivers-space/original.txt | go-junit-report > /tmp/test-reports/archivers-space/junit.xml
+      - store_test_results:
+          path: /tmp/test-reports/archivers-space/junit.xml
+      - setup_remote_docker
+      - run:
+          name: Install Docker client
+          command: |
+            set -x
+            VER="17.03.0-ce"
+            curl -L -o /tmp/docker-$VER.tgz https://get.docker.com/builds/Linux/x86_64/docker-$VER.tgz
+            tar -xz -C /tmp -f /tmp/docker-$VER.tgz
+            mv /tmp/docker/* /usr/bin
+      - run:
+          name: Publish to Docker Hub
+          command: |
+            TAG=0.1.$CIRCLE_BUILD_NUM
+            docker build -t archivers/sentry:$TAG .
+            docker login -u $DOCKER_USER -p $DOCKER_PASS
+            docker push archivers/sentry:$TAG
