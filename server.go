@@ -25,27 +25,9 @@ var (
 	appDB *sql.DB
 )
 
-func main() {
-	var err error
-	cfg, err = initConfig(os.Getenv("GOLANG_ENV"))
-	if err != nil {
-		// panic if the server is missing a vital configuration detail
-		panic(fmt.Errorf("server configuration error: %s", err.Error()))
-	}
-
-	connectToAppDb()
-
-	if cfg.Crawl {
-		// what a wonderful phrase :)
-		go startCrawling()
-	}
-
-	go StartCron(time.Hour * 5)
-	// if err := CalcBasePrimerStats(); err != nil {
-	// 	logger.Println(err)
-	// }
-
-	s := &http.Server{}
+// NewServerRoutes returns a Muxer that has all API routes.
+// This makes for easy testing using httptest, see server_test.go
+func NewServerRoutes() *http.ServeMux {
 	m := http.NewServeMux()
 	m.HandleFunc("/.well-known/acme-challenge/", CertbotHandler)
 	m.Handle("/", middleware(HealthCheckHandler))
@@ -65,8 +47,30 @@ func main() {
 	// r.POST("/que", middleware(EnqueUrlHandler))
 	m.Handle("/shutdown", middleware(ShutdownHandler))
 
+	return m
+}
+
+func main() {
+	var err error
+	cfg, err = initConfig(os.Getenv("GOLANG_ENV"))
+	if err != nil {
+		// panic if the server is missing a vital configuration detail
+		panic(fmt.Errorf("server configuration error: %s", err.Error()))
+	}
+
+	connectToAppDb()
+
+	if cfg.Crawl {
+		// what a wonderful phrase :)
+		go startCrawling()
+	}
+
+	// run cron every 5 hours for now
+	go StartCron(time.Hour * 5)
+
+	s := &http.Server{}
 	// connect mux to server
-	s.Handler = m
+	s.Handler = NewServerRoutes()
 
 	// print notable config settings
 	// printConfigInfo()

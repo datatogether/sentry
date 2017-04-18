@@ -10,10 +10,16 @@ import (
 	"golang.org/x/crypto/acme/autocert"
 )
 
+// StartServer interprets info from config to start the server
+// if config.TLS == true it'll spin up an https server using LetsEncrypt
+// that should work just fine on the raw internet (ie not behind a proxy like nginx etc)
+// it'll also redirect http traffic to it's https route counterpart if port 80 is open
 func StartServer(c *config, s *http.Server) error {
+	// Set listening address
 	s.Addr = fmt.Sprintf(fmt.Sprintf(":%s", c.Port))
 
 	if !c.TLS {
+		// No TLS? Ok just serve up an http server over config.Port
 		return s.ListenAndServe()
 	}
 

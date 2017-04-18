@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"database/sql"
 	"fmt"
-	"github.com/qri-io/archive"
+	"github.com/archivers-space/archive"
 	"net/http"
 	"net/url"
 	"runtime"
@@ -138,7 +138,7 @@ func startCrawling() {
 	}()
 
 	// do an initial domain seed
-	seedCrawlingUrls(appDB, q)
+	seedCrawlingSources(appDB, q)
 	seedUrls(appDB, q, 10)
 
 	// check to see if top levels need to be re-crawled for staleness
@@ -148,7 +148,7 @@ func startCrawling() {
 		case <-c:
 			if len(enqued) < 100 {
 				logger.Println("que is low, adding urls")
-				seedCrawlingUrls(appDB, q)
+				seedCrawlingSources(appDB, q)
 				seedUrls(appDB, q, 400)
 			}
 		}
@@ -157,8 +157,10 @@ func startCrawling() {
 	q.Block()
 }
 
-func seedCrawlingUrls(db *sql.DB, q *fetchbot.Queue) error {
-	urls, err := archive.CrawlingUrls(db)
+// seedCrawlingSources grabs a list of sources that are currently set to crawl
+// and adds them to the que
+func seedCrawlingSources(db *sql.DB, q *fetchbot.Queue) error {
+	urls, err := archive.CrawlingSources(db, 200, 0)
 	if err != nil {
 		return err
 	}
@@ -232,6 +234,8 @@ func seedUrls(db *sql.DB, q *fetchbot.Queue, count int) error {
 	return nil
 }
 
+// enqueDomainGet adds a url GET request to the que if the url is valid
+// for queing & not already enqued
 func enqueueDomainGet(u *archive.Url, ctx *fetchbot.Context) error {
 	// logger.Printf("url: %s, should head: %t, isFetchable: %t", u.Url, u.ShouldEnqueueHead(), u.isFetchable())
 	if enqued[u.Url] == "" && u.ShouldEnqueueGet() {
@@ -246,6 +250,7 @@ func enqueueDomainGet(u *archive.Url, ctx *fetchbot.Context) error {
 	return nil
 }
 
+// enqueDstLinks works through all linked urls
 func enqueueDstLinks(links []*archive.Link, ctx *fetchbot.Context) error {
 	if links == nil || len(links) == 0 {
 		return nil
@@ -297,6 +302,7 @@ func stopHandler(stopurl string, cancel bool, wrapped fetchbot.Handler) fetchbot
 	})
 }
 
+// construct a slice of [key,val,key,val,...] listing all response headers
 func rawHeadersSlice(res *http.Response) (headers []string) {
 	for key, val := range res.Header {
 		headers = append(headers, []string{key, strings.Join(val, ",")}...)
@@ -314,6 +320,7 @@ func logHandler(wrapped fetchbot.Handler) fetchbot.Handler {
 	})
 }
 
+// memStats prints off this server's current memory statistics
 func memStats(di *fetchbot.DebugInfo) []byte {
 	var mem runtime.MemStats
 	runtime.ReadMemStats(&mem)
@@ -331,6 +338,9 @@ func memStats(di *fetchbot.DebugInfo) []byte {
 	return buf.Bytes()
 }
 
+// enquedUrls lists out all urls currently in the que in no particular order
+// TODO - order based on position within the que, or at least confirm that
+// the order is in fact random
 func enquedUrls() []byte {
 	buf := bytes.NewBuffer(nil)
 	buf.WriteString("Enqued Urls:\n")

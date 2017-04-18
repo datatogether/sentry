@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/qri-io/archive"
+	"github.com/archivers-space/archive"
 	"io/ioutil"
 	"os"
 	"strings"

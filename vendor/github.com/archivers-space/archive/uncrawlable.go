@@ -10,7 +10,9 @@ import (
 // the nature of the uncrawlable, setting the stage for writing custom scripts
 // to extract the underlying content.
 type Uncrawlable struct {
-	// url from urls table, used as primary key
+	// version 4 uuid
+	Id string `json:"id"`
+	// url from urls table, must be unique
 	Url string `json:"url"`
 	// Created timestamp rounded to seconds in UTC
 	Created time.Time `json:"created"`
@@ -64,6 +66,7 @@ func (c *Uncrawlable) Save(db sqlQueryExecable) error {
 	prev := &Uncrawlable{Url: c.Url}
 	if err := prev.Read(db); err != nil {
 		if err == ErrNotFound {
+			c.Id = NewUuid()
 			c.Created = time.Now().Round(time.Second)
 			c.Updated = c.Created
 			_, err := db.Exec(qUncrawlableInsert, c.SQLArgs()...)
@@ -89,15 +92,15 @@ func (c *Uncrawlable) Delete(db sqlQueryExecable) error {
 // it expects the request to have used uncrawlableCols() for selection
 func (u *Uncrawlable) UnmarshalSQL(row sqlScannable) (err error) {
 	var (
-		created, updated                       time.Time
-		creator, url, name, email, eventName   string
-		agency, agencyId, subagencyId          string
-		orgId, suborgId, subprimerId, comments string
-		ftp, database, interactive, manyFiles  bool
+		created, updated                         time.Time
+		id, creator, url, name, email, eventName string
+		agency, agencyId, subagencyId            string
+		orgId, suborgId, subprimerId, comments   string
+		ftp, database, interactive, manyFiles    bool
 	)
 
 	if err := row.Scan(
-		&url, &created, &updated,
+		&id, &url, &created, &updated,
 		&creator, &name, &email, &eventName, &agency,
 		&agencyId, &subagencyId, &orgId, &suborgId, &subprimerId,
 		&ftp, &database, &interactive, &manyFiles,
@@ -109,6 +112,7 @@ func (u *Uncrawlable) UnmarshalSQL(row sqlScannable) (err error) {
 	}
 
 	*u = Uncrawlable{
+		Id:          id,
 		Created:     created.In(time.UTC),
 		Updated:     updated.In(time.UTC),
 		Creator:     creator,
@@ -135,6 +139,7 @@ func (u *Uncrawlable) UnmarshalSQL(row sqlScannable) (err error) {
 // SQLArgs formats a uncrawlable struct for inserting / updating into postgres
 func (u *Uncrawlable) SQLArgs() []interface{} {
 	return []interface{}{
+		u.Id,
 		u.Url,
 		u.Created.In(time.UTC),
 		u.Updated.In(time.UTC),

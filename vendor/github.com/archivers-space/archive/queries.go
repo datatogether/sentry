@@ -196,22 +196,13 @@ where
 
 const qSourcesCrawling = `
 select
-  id, created, updated, title, description, url, parent_id, crawl, stale_duration,
+  id, created, updated, title, description, url, primer_id, crawl, stale_duration,
   last_alert_sent, meta, stats
 from sources
 where
   deleted = false and
   crawl = true 
 limit $1 offset $2;`
-
-const qSourceCrawlingUrls = `
-select
-  id, created, updated, title, description, url, primer_id, crawl, stale_duration,
-  last_alert_sent, meta, stats
-from sources
-where
-  deleted = false and
-  crawl = true;`
 
 const qSourceContentUrlCount = `
 select count(1) 
@@ -405,28 +396,39 @@ where
   links.dst = $1 and 
   links.src = urls.url;`
 
+const qUncrawlablesList = `
+select 
+  id, url,created,updated,creator_key_id,
+  name,email,event_name,agency_name,
+  agency_id,subagency_id,org_id,suborg_id,subprimer_id,
+  ftp,database,interactive,many_files,
+  comments
+from uncrawlables
+order by created desc
+limit $1 offset $2;`
+
 const qUncrawlableInsert = `
 insert into uncrawlables 
-  ( url, created,updated,creator_key_id,
+  ( id, url, created,updated,creator_key_id,
     name,email,event_name,agency_name,
     agency_id,subagency_id,org_id,suborg_id,subprimer_id,
     ftp,database,interactive,many_files,
     comments) 
-values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18);`
+values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19);`
 
 const qUncrawlableUpdate = `
 update uncrawlables 
 set
-  created = $2, updated = $3, creator_key_id = $4,
-  name = $5, email = $6, event_name = $7, agency_name = $8,
-  agency_id = $9, subagency_id = $10, org_id = $11, suborg_id = $12, subprimer_id = $13,
-  ftp = $14, database = $15,interactive = $16, many_files = $17,
-  comments = $18
-where url = $1;`
+  url = $2, created = $3, updated = $4, creator_key_id = $5,
+  name = $6, email = $7, event_name = $8, agency_name = $9,
+  agency_id = $10, subagency_id = $11, org_id = $12, suborg_id = $13, subprimer_id = $14,
+  ftp = $15, database = $16,interactive = $17, many_files = $18,
+  comments = $19
+where id = $1;`
 
 const qUncrawlableByUrl = `
 select 
-  url,created,updated,creator_key_id,
+  id, url,created,updated,creator_key_id,
   name,email,event_name,agency_name,
   agency_id,subagency_id,org_id,suborg_id,subprimer_id,
   ftp,database,interactive,many_files,

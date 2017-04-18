@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/qri-io/archive"
+	"github.com/archivers-space/archive"
 	"net/http"
 	"time"
 

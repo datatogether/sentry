@@ -1,10 +1,14 @@
 package main
 
 import (
-	"github.com/qri-io/archive"
+	"github.com/archivers-space/archive"
 	"time"
 )
 
+// StartCron spins up a ticker that will run cron jobs (currently just calculating base Primer Stats)
+// at a given interval
+// TODO - this should move to a que to clear the way for running lots & lots
+// of copies of sentry
 func StartCron(d time.Duration) (stop func()) {
 	t := time.NewTicker(d)
 	go func() {
@@ -21,6 +25,10 @@ func StartCron(d time.Duration) (stop func()) {
 	return t.Stop
 }
 
+// CalcBasePrimerStats calculates the tallies for primers that have no parent
+// Primer by calculating stats for all of their child primers & working up the chain
+// This process is very computationally expensive, and should be run selectively
+// TODO - this currently spins up at least 1Gig of ram to do it's work, need to refactor
 func CalcBasePrimerStats() error {
 	logger.Println("[INFO] starting base primer stat calculation")
 	ps, err := archive.BasePrimers(appDB, 100, 0)

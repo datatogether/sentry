@@ -26,7 +26,7 @@ type Source struct {
 	// absolute url to serve as the root of the
 	Url string `json:"url"`
 	// primer this source is connected to
-	PrimerId string `json:"primerId"`
+	Primer *Primer `json:"primer"`
 	// weather or not this url should be crawled be a web crawler
 	Crawl bool `json:"crawl"`
 	// amount of time before a link within this tree is considered in need
@@ -160,13 +160,13 @@ func (s *Source) DescribedContent(db sqlQueryable, limit, offset int) ([]*Url, e
 // func (s *Source) Stats() {
 // }
 
-func (c *Source) Read(db sqlQueryable) error {
-	if c.Id != "" {
-		row := db.QueryRow(qSourceById, c.Id)
-		return c.UnmarshalSQL(row)
-	} else if c.Url != "" {
-		row := db.QueryRow(qSourceByUrl, c.Url)
-		return c.UnmarshalSQL(row)
+func (s *Source) Read(db sqlQueryable) error {
+	if s.Id != "" {
+		row := db.QueryRow(qSourceById, s.Id)
+		return s.UnmarshalSQL(row)
+	} else if s.Url != "" {
+		row := db.QueryRow(qSourceByUrl, s.Url)
+		return s.UnmarshalSQL(row)
 	}
 	return ErrNotFound
 }
@@ -240,7 +240,7 @@ func (c *Source) UnmarshalSQL(row sqlScannable) error {
 		Title:         title,
 		Description:   description,
 		Url:           url,
-		PrimerId:      pId,
+		Primer:        &Primer{Id: pId},
 		Crawl:         crawl,
 		StaleDuration: time.Duration(stale * 1000000),
 		LastAlertSent: lastAlert,
@@ -275,7 +275,7 @@ func (c *Source) SQLArgs() []interface{} {
 		c.Title,
 		c.Description,
 		c.Url,
-		c.PrimerId,
+		c.Primer.Id,
 		c.Crawl,
 		c.StaleDuration / 1000000,
 		date,

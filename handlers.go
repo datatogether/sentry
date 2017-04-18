@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/qri-io/archive"
+	"github.com/archivers-space/archive"
 	"io"
 	"net/http"
 	"net/url"
@@ -288,8 +288,9 @@ func UrlsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func HandleCrawlingUrls(w http.ResponseWriter, r *http.Request) {
-	urls, err := archive.CrawlingUrls(appDB)
+func HandleCrawlingSources(w http.ResponseWriter, r *http.Request) {
+	p := PageFromRequest(r)
+	urls, err := archive.CrawlingSources(appDB, p.Size, p.Offset())
 	if err != nil {
 		w.WriteHeader(500)
 		w.Write([]byte(err.Error()))

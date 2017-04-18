@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/qri-io/ffi"
+	"github.com/archivers-space/ffi"
 	"net/http"
 	"net/url"
 	"path/filepath"

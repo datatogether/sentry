@@ -1,6 +1,6 @@
 # ffi
 --
-    import "github.com/qri-io/ffi"
+    import "github.com/archivers-space/ffi"
 
 FFI - File Format identification is a package for making sensible guesses about
 file formats from Url strings. FFI is structured as a package to clear the way

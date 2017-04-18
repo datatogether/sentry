@@ -1,4 +1,4 @@
-// TODO - turn "Metadata" into github.com/qri-io/metablocks.Metablock
+// TODO - turn "Metadata" into github.com/archivers-space/metablocks.Metablock
 package archive
 
 import (
