@@ -30,7 +30,9 @@ var (
 func init() {
 	log.Out = os.Stdout
 	log.Level = logrus.InfoLevel
-	log.Formatter = &logrus.TextFormatter{}
+	log.Formatter = &logrus.TextFormatter{
+		ForceColors: true,
+	}
 }
 
 // NewServerRoutes returns a Muxer that has all API routes.
@@ -50,6 +52,7 @@ func NewServerRoutes() *http.ServeMux {
 
 	m.Handle("/urls", middleware(UrlsHandler))
 	// m.Handle("/url", middleware(UrlHandler))
+	m.Handle("/sources", middleware(CrawlingSourcesHandler))
 	m.Handle("/mem", middleware(MemStatsHandler))
 	m.Handle("/que", middleware(EnquedHandler))
 	// r.POST("/que", middleware(EnqueUrlHandler))

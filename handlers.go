@@ -288,14 +288,23 @@ func UrlsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func HandleCrawlingSources(w http.ResponseWriter, r *http.Request) {
-	p := PageFromRequest(r)
-	urls, err := archive.CrawlingSources(appDB, p.Size, p.Offset())
-	if err != nil {
-		w.WriteHeader(500)
-		w.Write([]byte(err.Error()))
-		return
+func CrawlingSourcesHandler(w http.ResponseWriter, r *http.Request) {
+	// p := PageFromRequest(r)
+	// urls, err := archive.CrawlingSources(appDB, p.Size, p.Offset())
+	// if err != nil {
+	// 	w.WriteHeader(500)
+	// 	w.Write([]byte(err.Error()))
+	// 	return
+	// }
+	urls := make([]string, len(crawlingUrls))
+	for i, u := range crawlingUrls {
+		urls[i] = u.String()
 	}
 
-	json.NewEncoder(w).Encode(urls)
+	data, err := json.MarshalIndent(urls, "", "  ")
+	if err != nil {
+		log.Debug(err.Error())
+		return
+	}
+	w.Write(data)
 }
