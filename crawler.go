@@ -34,15 +34,17 @@ var (
 // startCrawling initializes the crawler, queue, stopCrawler channel, and
 // crawlingUrls slice
 func startCrawling() {
-	go startCrawlingContent()
+	// go startCrawlingContent()
+
 	// Create the muxer
 	mux := fetchbot.NewMux()
 
 	// Handle all errors the same
 	mux.HandleErrors(fetchbot.HandlerFunc(func(ctx *fetchbot.Context, res *http.Response, err error) {
 		mu.Lock()
-		defer mu.Unlock()
 		delete(enqued, ctx.Cmd.URL().String())
+		mu.Unlock()
+
 		log.Infof("res error - %s %s - %s", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
 	}))
 
@@ -58,8 +60,8 @@ func startCrawling() {
 			}
 
 			mu.Lock()
-			defer mu.Unlock()
 			delete(enqued, u.Url)
+			mu.Unlock()
 
 			done := func(err error) {
 				if err != nil {
@@ -177,7 +179,7 @@ func seedCrawlingSources(db *sql.DB, q *fetchbot.Queue) error {
 
 		u, err := c.AsUrl(db)
 		if err != nil {
-			log.Debug(err.Error())
+			log.Info(err.Error())
 			return err
 		}
 
@@ -190,7 +192,7 @@ func seedCrawlingSources(db *sql.DB, q *fetchbot.Queue) error {
 		enqued[u.Url] = "GET"
 		_, err = q.SendStringGet(u.Url)
 		if err != nil {
-			log.Debug("error enquing string get", err.Error())
+			log.Info("error enquing string get", err.Error())
 			return err
 		}
 	}
@@ -270,7 +272,7 @@ func enqueueDstLinks(u *archive.Url, links []*archive.Link, ctx *fetchbot.Contex
 		// log.Infof("url: %s, should head: %t, isFetchable: %t", l.Dst.Url, l.Dst.ShouldEnqueueHead(), l.Dst.isFetchable())
 		if enqued[l.Dst.Url] == "" && l.Dst.ShouldEnqueueHead() {
 			// skip the que & go straight to content archiving if it's a
-			if l.Dst.SuspectedContentUrl() {
+			if l.Dst.SuspectedContentUrl() && contentQueue != nil {
 				gets++
 				enqued[l.Dst.Url] = "GET"
 				contentQueue.SendStringGet(l.Dst.Url)
