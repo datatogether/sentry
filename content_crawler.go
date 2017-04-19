@@ -27,10 +27,10 @@ func startCrawlingContent() {
 
 	// Handle all errors the same
 	mux.HandleErrors(fetchbot.HandlerFunc(func(ctx *fetchbot.Context, res *http.Response, err error) {
-		mu.Lock()
-		delete(enqued, ctx.Cmd.URL().String())
-		mu.Unlock()
 		log.Infof("content res error - %s %s - %s\n", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
+		mu.Lock()
+		defer mu.Unlock()
+		delete(enqued, ctx.Cmd.URL().String())
 	}))
 
 	// Handle GET requests for html responses, to parse the body and enqueue all links as HEAD requests.
@@ -45,24 +45,24 @@ func startCrawlingContent() {
 			}
 
 			mu.Lock()
+			defer mu.Unlock()
 			delete(enqued, u.Url)
-			mu.Unlock()
 
 			done := func(err error) {
 				if err != nil {
-					log.Println(err.Error())
+					log.Info(err.Error())
 				}
 			}
 
 			links, err := u.HandleGetResponse(appDB, res, done)
 			if err != nil {
-				log.Debugln(err.Error())
+				log.Info(err.Error())
 				return
 			}
 
 			// Enqueue all links as HEAD requests
 			if err := enqueueDstLinks(u, links, ctx); err != nil {
-				log.Debugln(err.Error())
+				log.Info(err.Error())
 			}
 		}))
 

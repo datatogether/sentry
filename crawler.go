@@ -41,8 +41,8 @@ func startCrawling() {
 	// Handle all errors the same
 	mux.HandleErrors(fetchbot.HandlerFunc(func(ctx *fetchbot.Context, res *http.Response, err error) {
 		mu.Lock()
+		defer mu.Unlock()
 		delete(enqued, ctx.Cmd.URL().String())
-		mu.Unlock()
 		log.Infof("res error - %s %s - %s", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
 	}))
 
@@ -58,8 +58,8 @@ func startCrawling() {
 			}
 
 			mu.Lock()
+			defer mu.Unlock()
 			delete(enqued, u.Url)
-			mu.Unlock()
 
 			done := func(err error) {
 				if err != nil {
@@ -115,7 +115,7 @@ func startCrawling() {
 					log.Infof("error enquing domain get: %s %s - %s\n", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
 				}
 			} else {
-				log.Debugf("url %s isn't whitelisted", addr.String())
+				log.Debugf("%s isn't whitelisted", addr.String())
 			}
 		}))
 
@@ -245,10 +245,12 @@ func enqueueDomainGet(u *archive.Url, ctx *fetchbot.Context) error {
 		_, err := ctx.Q.SendStringGet(u.Url)
 		if err == nil {
 			mu.Lock()
+			defer mu.Unlock()
 			enqued[u.Url] = "GET"
-			mu.Unlock()
 		}
 		return err
+	} else if enqued[u.Url] == "" {
+		log.Debugf("skipped url: %s last head: %s, last get: %s, content type: %s, content sniff: %s", u.Url, u.LastHead, u.LastGet, u.ContentType, u.ContentSniff)
 	}
 	return nil
 }
@@ -287,7 +289,7 @@ func enqueueDstLinks(u *archive.Url, links []*archive.Link, ctx *fetchbot.Contex
 			}
 		}
 	}
-	log.Debugf("enqued %d GET, %d HEAD from %d links for source: %s", heads, gets, len(links), u.Url)
+	log.Debugf("enqued %d GET, %d HEAD from %d links for source: %s", gets, heads, len(links), u.Url)
 	return nil
 }
 
