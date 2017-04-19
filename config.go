@@ -110,6 +110,7 @@ func initConfig(mode string) (cfg *config, err error) {
 	// override config settings with env settings, passing in the current configuration
 	// as the default. This has the effect of leaving the config.json value unchanged
 	// if the env variable is empty
+	cfg.Debug = readEnvBool("DEBUG", cfg.Debug)
 	cfg.Port = readEnvString("PORT", cfg.Port)
 	cfg.UrlRoot = readEnvString("URL_ROOT", cfg.UrlRoot)
 	cfg.PublicKey = readEnvString("PUBLIC_KEY", cfg.PublicKey)

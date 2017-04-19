@@ -61,7 +61,7 @@ func startCrawlingContent() {
 			}
 
 			// Enqueue all links as HEAD requests
-			if err := enqueueDstLinks(links, ctx); err != nil {
+			if err := enqueueDstLinks(u, links, ctx); err != nil {
 				log.Debugln(err.Error())
 			}
 		}))

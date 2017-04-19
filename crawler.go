@@ -73,8 +73,7 @@ func startCrawling() {
 				return
 			}
 
-			// Enqueue all links as HEAD requests
-			if err := enqueueDstLinks(links, ctx); err != nil {
+			if err := enqueueDstLinks(u, links, ctx); err != nil {
 				log.Debugf("enque links error: %s", err.Error())
 			}
 		}))
@@ -252,7 +251,7 @@ func enqueueDomainGet(u *archive.Url, ctx *fetchbot.Context) error {
 }
 
 // enqueDstLinks works through all linked urls
-func enqueueDstLinks(links []*archive.Link, ctx *fetchbot.Context) error {
+func enqueueDstLinks(u *archive.Url, links []*archive.Link, ctx *fetchbot.Context) error {
 	if links == nil || len(links) == 0 {
 		return nil
 	}
@@ -260,11 +259,14 @@ func enqueueDstLinks(links []*archive.Link, ctx *fetchbot.Context) error {
 	mu.Lock()
 	defer mu.Unlock()
 
+	heads := 0
+	gets := 0
 	for _, l := range links {
 		// log.Infof("url: %s, should head: %t, isFetchable: %t", l.Dst.Url, l.Dst.ShouldEnqueueHead(), l.Dst.isFetchable())
 		if enqued[l.Dst.Url] == "" && l.Dst.ShouldEnqueueHead() {
 			// skip the que & go straight to content archiving if it's a
 			if l.Dst.SuspectedContentUrl() {
+				gets++
 				enqued[l.Dst.Url] = "GET"
 				contentQueue.SendStringGet(l.Dst.Url)
 				continue
@@ -273,12 +275,16 @@ func enqueueDstLinks(links []*archive.Link, ctx *fetchbot.Context) error {
 			if _, err := ctx.Q.SendStringHead(l.Dst.Url); err != nil {
 				log.Debugf("error: enqueue head %s - %s\n", l.Dst.Url, err)
 			} else {
-				// at this point the destination has been added for a HEAD request.
-				// dup[u.String()] = true
+				heads++
 				enqued[l.Dst.Url] = "HEAD"
+			}
+		} else {
+			if enqued[l.Dst.Url] == "" {
+				log.Debugf("skipped url: %s last head: %s, last get: %s", l.Dst.Url, l.Dst.LastHead, l.Dst.LastGet)
 			}
 		}
 	}
+	log.Debugf("enqued %d GET, %d HEAD from %d links for source: %s", heads, gets, len(links), u.Url)
 	return nil
 }
 
