@@ -34,7 +34,7 @@ var (
 // startCrawling initializes the crawler, queue, stopCrawler channel, and
 // crawlingUrls slice
 func startCrawling() {
-	// go startCrawlingContent()
+	go startCrawlingContent()
 
 	// Create the muxer
 	mux := fetchbot.NewMux()
