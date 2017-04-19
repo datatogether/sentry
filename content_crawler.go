@@ -74,6 +74,7 @@ func startCrawlingContent() {
 	contentFetcher.CrawlDelay = cfg.CrawlDelaySeconds * time.Second
 
 	// Start processing
+	log.Info("starting B crawler (content)")
 	q := contentFetcher.Start()
 	contentQueue = q
 
@@ -81,6 +82,7 @@ func startCrawlingContent() {
 	stopContentCrawler = make(chan bool)
 	go func() {
 		<-stopContentCrawler
+		log.Info("stopping B crawler (content)")
 		stopFunc()
 	}()
 

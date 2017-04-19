@@ -104,8 +104,8 @@ func startCrawling() {
 			u.LastHead = &now
 
 			if err := u.Update(appDB); err != nil {
-				log.Debugf("update error: %s %s - %s\n", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
-				log.Debugf("%#v", u)
+				log.Infof("update error: %s %s - %s\n", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
+				log.Infof("%#v", u)
 			}
 
 			// if we're currently crawling this url's domain, attept to add it to the
@@ -114,13 +114,15 @@ func startCrawling() {
 				if err := enqueueDomainGet(u, ctx); err != nil {
 					log.Infof("error enquing domain get: %s %s - %s\n", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
 				}
+			} else {
+				log.Debugf("url %s isn't whitelisted", addr.String())
 			}
 		}))
 
 	// Create the Fetcher, handle the logging first, then dispatch to the Muxer
 	h := logHandler("A", mux)
 
-	log.Info("starting crawl")
+	log.Info("starting A crawler (main)")
 	f = fetchbot.New(h)
 	f.DisablePoliteness = !cfg.Polite
 	f.CrawlDelay = cfg.CrawlDelaySeconds * time.Second
@@ -133,6 +135,7 @@ func startCrawling() {
 	stopCrawler = make(chan bool)
 	go func() {
 		<-stopCrawler
+		log.Info("stopping A crawler (main)")
 		stopFunc()
 	}()
 
@@ -170,7 +173,7 @@ func seedCrawlingSources(db *sql.DB, q *fetchbot.Queue) error {
 	crawlingUrls = make([]*url.URL, len(urls))
 	for i, c := range urls {
 
-		log.Debugf("crawling url:", c.Url)
+		log.Debugf("crawling url: %s", c.Url)
 
 		u, err := c.AsUrl(db)
 		if err != nil {
