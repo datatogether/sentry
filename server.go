@@ -3,7 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"log"
+	"github.com/sirupsen/logrus"
 	"net/http"
 	"os"
 	"time"
@@ -16,14 +16,22 @@ var (
 
 	// When was the last alert sent out?
 	// Use this value to avoid bombing alerts
+	// TODO - this is from an half-baked, unfinished alerts feature idea
 	lastAlertSent *time.Time
 
 	// log output
-	logger = log.New(os.Stdout, "", log.Ldate|log.Ltime|log.Lshortfile)
+	// logger = logger.New(os.Stdout, "", log.Ldate|log.Ltime|log.Lshortfile)
+	log = logrus.New()
 
 	// application database connection
 	appDB *sql.DB
 )
+
+func init() {
+	log.Out = os.Stdout
+	log.Level = logrus.InfoLevel
+	log.Formatter = &logrus.TextFormatter{}
+}
 
 // NewServerRoutes returns a Muxer that has all API routes.
 // This makes for easy testing using httptest, see server_test.go
@@ -57,6 +65,9 @@ func main() {
 		// panic if the server is missing a vital configuration detail
 		panic(fmt.Errorf("server configuration error: %s", err.Error()))
 	}
+	if cfg.Debug {
+		log.Level = logrus.DebugLevel
+	}
 
 	connectToAppDb()
 
@@ -80,5 +91,5 @@ func main() {
 
 	// start server wrapped in a log.Fatal b/c http.ListenAndServe will not
 	// return unless there's an error
-	logger.Fatal(StartServer(cfg, s))
+	log.Fatal(StartServer(cfg, s))
 }

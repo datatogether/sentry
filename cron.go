@@ -16,7 +16,7 @@ func StartCron(d time.Duration) (stop func()) {
 			select {
 			case <-t.C:
 				if err := CalcBasePrimerStats(); err != nil {
-					logger.Println(err)
+					log.Debug(err)
 				}
 			}
 		}
@@ -30,7 +30,7 @@ func StartCron(d time.Duration) (stop func()) {
 // This process is very computationally expensive, and should be run selectively
 // TODO - this currently spins up at least 1Gig of ram to do it's work, need to refactor
 func CalcBasePrimerStats() error {
-	logger.Println("[INFO] starting base primer stat calculation")
+	log.Info("[INFO] starting base primer stat calculation")
 	ps, err := archive.BasePrimers(appDB, 100, 0)
 	if err != nil {
 		return err
@@ -40,6 +40,6 @@ func CalcBasePrimerStats() error {
 			return err
 		}
 	}
-	logger.Println("[INFO] base primer stat calculation finished.")
+	log.Info("[INFO] base primer stat calculation finished.")
 	return nil
 }

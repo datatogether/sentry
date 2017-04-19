@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"github.com/archivers-space/archive"
 	"net/http"
 	"time"
@@ -31,7 +30,7 @@ func startCrawlingContent() {
 		mu.Lock()
 		delete(enqued, ctx.Cmd.URL().String())
 		mu.Unlock()
-		logger.Printf("[ERR] content %s %s - %s\n", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
+		log.Infof("content res error - %s %s - %s\n", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
 	}))
 
 	// Handle GET requests for html responses, to parse the body and enqueue all links as HEAD requests.
@@ -40,8 +39,8 @@ func startCrawlingContent() {
 
 			u := &archive.Url{Url: ctx.Cmd.URL().String()}
 			if err := u.Read(appDB); err != nil {
-				// logger.Printf("[ERR] url read error: %s - (%s) - %s\n", ctx.Cmd.URL(), NormalizeURL(ctx.Cmd.URL()), err)
-				logger.Printf("[ERR] content url read error: %s - %s\n", u.Url, err)
+				// log.Printf("[ERR] url read error: %s - (%s) - %s\n", ctx.Cmd.URL(), NormalizeURL(ctx.Cmd.URL()), err)
+				log.Infof("content url read error: %s - %s\n", u.Url, err)
 				return
 			}
 
@@ -51,24 +50,24 @@ func startCrawlingContent() {
 
 			done := func(err error) {
 				if err != nil {
-					logger.Println(err.Error())
+					log.Println(err.Error())
 				}
 			}
 
 			links, err := u.HandleGetResponse(appDB, res, done)
 			if err != nil {
-				fmt.Println(err.Error())
+				log.Debugln(err.Error())
 				return
 			}
 
 			// Enqueue all links as HEAD requests
 			if err := enqueueDstLinks(links, ctx); err != nil {
-				fmt.Println(err.Error())
+				log.Debugln(err.Error())
 			}
 		}))
 
 	// Create the Fetcher, handle the logging first, then dispatch to the Muxer
-	h := logHandler(mux)
+	h := logHandler("B", mux)
 
 	contentFetcher = fetchbot.New(h)
 	contentFetcher.DisablePoliteness = !cfg.Polite

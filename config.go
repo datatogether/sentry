@@ -29,6 +29,7 @@ const (
 //
 // configuration is read at startup and cannot be alterd without restarting the server.
 type config struct {
+	Debug bool `json:"DEBUG"`
 	// port to listen on, will be read from PORT env variable if present.
 	Port string `json:"PORT"`
 
@@ -193,7 +194,7 @@ func loadConfigFile(mode string, cfg *config) (err error) {
 		}
 	}
 
-	logger.Printf("reading config file: %s", fileName)
+	log.Infof("reading config file: %s", fileName)
 	data, err = ioutil.ReadFile(fileName)
 	if err != nil {
 		err = fmt.Errorf("error reading %s: %s", fileName, err)

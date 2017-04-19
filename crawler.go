@@ -43,7 +43,7 @@ func startCrawling() {
 		mu.Lock()
 		delete(enqued, ctx.Cmd.URL().String())
 		mu.Unlock()
-		logger.Printf("[ERR] %s %s - %s\n", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
+		log.Infof("res error - %s %s - %s", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
 	}))
 
 	// Handle GET requests for html responses, to parse the body and enqueue all links as HEAD requests.
@@ -52,8 +52,8 @@ func startCrawling() {
 
 			u := &archive.Url{Url: ctx.Cmd.URL().String()}
 			if err := u.Read(appDB); err != nil {
-				// logger.Printf("[ERR] url read error: %s - (%s) - %s\n", ctx.Cmd.URL(), NormalizeURL(ctx.Cmd.URL()), err)
-				logger.Printf("[ERR] url read error: %s - %s\n", u.Url, err)
+				// log.Infof("[ERR] url read error: %s - (%s) - %s\n", ctx.Cmd.URL(), NormalizeURL(ctx.Cmd.URL()), err)
+				log.Infof("url read error: %s - %s", u.Url, err)
 				return
 			}
 
@@ -63,19 +63,19 @@ func startCrawling() {
 
 			done := func(err error) {
 				if err != nil {
-					logger.Println(err.Error())
+					log.Info(err.Error())
 				}
 			}
 
 			links, err := u.HandleGetResponse(appDB, res, done)
 			if err != nil {
-				fmt.Println(err.Error())
+				log.Debugf("error handling get response: %s - %s", ctx.Cmd.URL().String(), err.Error())
 				return
 			}
 
 			// Enqueue all links as HEAD requests
 			if err := enqueueDstLinks(links, ctx); err != nil {
-				fmt.Println(err.Error())
+				log.Debugf("enque links error: %s", err.Error())
 			}
 		}))
 
@@ -92,7 +92,7 @@ func startCrawling() {
 			mu.Unlock()
 
 			if err := u.Read(appDB); err != nil {
-				logger.Println("[ERR] %s %s reading - ", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
+				log.Info("%s %s reading - ", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
 				return
 			}
 
@@ -105,23 +105,23 @@ func startCrawling() {
 			u.LastHead = &now
 
 			if err := u.Update(appDB); err != nil {
-				logger.Printf("[ERR] %s %s - %s\n", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
-				logger.Printf("%#v", u)
+				log.Debugf("update error: %s %s - %s\n", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
+				log.Debugf("%#v", u)
 			}
 
 			// if we're currently crawling this url's domain, attept to add it to the
 			// queue
 			if urlIsWhitelisted(addr) {
 				if err := enqueueDomainGet(u, ctx); err != nil {
-					logger.Printf("[ERR] %s %s - %s\n", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
+					log.Infof("error enquing domain get: %s %s - %s\n", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
 				}
 			}
 		}))
 
 	// Create the Fetcher, handle the logging first, then dispatch to the Muxer
-	h := logHandler(mux)
+	h := logHandler("A", mux)
 
-	logger.Println("starting crawl")
+	log.Info("starting crawl")
 	f = fetchbot.New(h)
 	f.DisablePoliteness = !cfg.Polite
 	f.CrawlDelay = cfg.CrawlDelaySeconds * time.Second
@@ -147,7 +147,7 @@ func startCrawling() {
 		select {
 		case <-c:
 			if len(enqued) < 100 {
-				logger.Println("que is low, adding urls")
+				log.Info("que is low, adding urls")
 				seedCrawlingSources(appDB, q)
 				seedUrls(appDB, q, 400)
 			}
@@ -171,11 +171,11 @@ func seedCrawlingSources(db *sql.DB, q *fetchbot.Queue) error {
 	crawlingUrls = make([]*url.URL, len(urls))
 	for i, c := range urls {
 
-		logger.Println("crawling url:", c.Url)
+		log.Debugf("crawling url:", c.Url)
 
 		u, err := c.AsUrl(db)
 		if err != nil {
-			fmt.Println(err)
+			log.Debug(err.Error())
 			return err
 		}
 
@@ -188,6 +188,7 @@ func seedCrawlingSources(db *sql.DB, q *fetchbot.Queue) error {
 		enqued[u.Url] = "GET"
 		_, err = q.SendStringGet(u.Url)
 		if err != nil {
+			log.Debug("error enquing string get", err.Error())
 			return err
 		}
 	}
@@ -229,7 +230,7 @@ func seedUrls(db *sql.DB, q *fetchbot.Queue, count int) error {
 				i++
 			}
 		}
-		logger.Printf("adding %d unfetched urls to que", i)
+		log.Infof("adding %d unfetched urls to que", i)
 	}
 	return nil
 }
@@ -237,7 +238,7 @@ func seedUrls(db *sql.DB, q *fetchbot.Queue, count int) error {
 // enqueDomainGet adds a url GET request to the que if the url is valid
 // for queing & not already enqued
 func enqueueDomainGet(u *archive.Url, ctx *fetchbot.Context) error {
-	// logger.Printf("url: %s, should head: %t, isFetchable: %t", u.Url, u.ShouldEnqueueHead(), u.isFetchable())
+	// log.Infof("url: %s, should head: %t, isFetchable: %t", u.Url, u.ShouldEnqueueHead(), u.isFetchable())
 	if enqued[u.Url] == "" && u.ShouldEnqueueGet() {
 		_, err := ctx.Q.SendStringGet(u.Url)
 		if err == nil {
@@ -260,7 +261,7 @@ func enqueueDstLinks(links []*archive.Link, ctx *fetchbot.Context) error {
 	defer mu.Unlock()
 
 	for _, l := range links {
-		// logger.Printf("url: %s, should head: %t, isFetchable: %t", l.Dst.Url, l.Dst.ShouldEnqueueHead(), l.Dst.isFetchable())
+		// log.Infof("url: %s, should head: %t, isFetchable: %t", l.Dst.Url, l.Dst.ShouldEnqueueHead(), l.Dst.isFetchable())
 		if enqued[l.Dst.Url] == "" && l.Dst.ShouldEnqueueHead() {
 			// skip the que & go straight to content archiving if it's a
 			if l.Dst.SuspectedContentUrl() {
@@ -270,7 +271,7 @@ func enqueueDstLinks(links []*archive.Link, ctx *fetchbot.Context) error {
 			}
 
 			if _, err := ctx.Q.SendStringHead(l.Dst.Url); err != nil {
-				fmt.Printf("error: enqueue head %s - %s\n", l.Dst.Url, err)
+				log.Debugf("error: enqueue head %s - %s\n", l.Dst.Url, err)
 			} else {
 				// at this point the destination has been added for a HEAD request.
 				// dup[u.String()] = true
@@ -286,7 +287,7 @@ func enqueueDstLinks(links []*archive.Link, ctx *fetchbot.Context) error {
 func stopHandler(stopurl string, cancel bool, wrapped fetchbot.Handler) fetchbot.Handler {
 	return fetchbot.HandlerFunc(func(ctx *fetchbot.Context, res *http.Response, err error) {
 		if ctx.Cmd.URL().String() == stopurl {
-			fmt.Printf(">>>>> STOP URL %s\n", ctx.Cmd.URL())
+			log.Infof(">>>>> STOP URL %s\n", ctx.Cmd.URL())
 			// generally not a good idea to stop/block from a handler goroutine
 			// so do it in a separate goroutine
 			go func() {
@@ -311,10 +312,10 @@ func rawHeadersSlice(res *http.Response) (headers []string) {
 }
 
 // logHandler prints the fetch information and dispatches the call to the wrapped Handler.
-func logHandler(wrapped fetchbot.Handler) fetchbot.Handler {
+func logHandler(crawlerId string, wrapped fetchbot.Handler) fetchbot.Handler {
 	return fetchbot.HandlerFunc(func(ctx *fetchbot.Context, res *http.Response, err error) {
 		if err == nil {
-			fmt.Printf("[%d] %s %s - %s\n", res.StatusCode, ctx.Cmd.Method(), ctx.Cmd.URL(), res.Header.Get("Content-Type"))
+			log.Infof("[%d] %s %s %s - %s", res.StatusCode, ctx.Cmd.Method(), crawlerId, ctx.Cmd.URL(), res.Header.Get("Content-Type"))
 		}
 		wrapped.Handle(ctx, res, err)
 	})

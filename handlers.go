@@ -142,7 +142,7 @@ func SeedUrlHandler(w http.ResponseWriter, r *http.Request) {
 // 	w.WriteHeader(200)
 // 	w.Header().Add("Content-Type", "application/json")
 // 	if err := json.NewEncoder(w).Encode(uc); err != nil {
-// 		logger.Println(err.Error())
+// 		log.Debug(err.Error())
 // 	}
 // }
 
@@ -242,14 +242,14 @@ func UrlsHandler(w http.ResponseWriter, r *http.Request) {
 			u := &archive.Url{Url: url}
 			if err := u.Read(appDB); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
-				logger.Println(err.Error())
+				log.Debug(err.Error())
 				return
 			}
 
 			data, err := json.MarshalIndent(u, "", "  ")
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
-				logger.Println(err.Error())
+				log.Debug(err.Error())
 				return
 			}
 
@@ -269,14 +269,14 @@ func UrlsHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
-				logger.Println(err.Error())
+				log.Debug(err.Error())
 				return
 			}
 
 			data, err := json.MarshalIndent(urls, "", "  ")
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
-				logger.Println(err.Error())
+				log.Debug(err.Error())
 				return
 			}
 
