@@ -61,9 +61,9 @@ func startCrawlingContent() {
 			}
 
 			// Enqueue all links as HEAD requests
-			if err := enqueueDstLinks(u, links, ctx); err != nil {
-				log.Info(err.Error())
-			}
+			// if err := enqueueDstLinks(u, links, ctx); err != nil {
+			// 	log.Info(err.Error())
+			// }
 		}))
 
 	// Create the Fetcher, handle the logging first, then dispatch to the Muxer
