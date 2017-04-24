@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"time"
 )
 
 func reqParamInt(key string, r *http.Request) (int, error) {
@@ -58,15 +59,38 @@ func reqUrl(r *http.Request) (*url.URL, error) {
 func SeedUrlHandler(w http.ResponseWriter, r *http.Request) {
 	if queue != nil {
 		// u, err := NormalizeURLString(r.FormValue("url"))
-		u, err := reqUrl(r)
+		parsedUrl, err := reqUrl(r)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			io.WriteString(w, fmt.Sprintf("'%s' is not a valid url", r.FormValue("url")))
 			return
 		}
-		queue.SendStringGet(u.String())
+
+		_, err = appDB.Exec("insert into archive_requests (created,url,user_id) values ($1, $2, $3)", time.Now().Round(time.Second).In(time.UTC), parsedUrl.String(), "")
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			io.WriteString(w, fmt.Sprintf("save url error: %s", err.Error()))
+			return
+		}
+
+		u := &archive.Url{Url: parsedUrl.String()}
+		if err := u.Read(appDB); err != nil {
+			if err == archive.ErrNotFound {
+				if err := u.Insert(appDB); err != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					io.WriteString(w, fmt.Sprintf("save url error: %s", err.Error()))
+					return
+				}
+			} else {
+				w.WriteHeader(http.StatusInternalServerError)
+				io.WriteString(w, fmt.Sprintf("save url error: %s", err.Error()))
+				return
+			}
+		}
+
+		queue.SendStringGet(parsedUrl.String())
 		w.WriteHeader(http.StatusOK)
-		io.WriteString(w, fmt.Sprintf("added url: %s", u.String()))
+		io.WriteString(w, fmt.Sprintf("added url: %s", parsedUrl.String()))
 	} else {
 		w.WriteHeader(http.StatusBadRequest)
 		io.WriteString(w, fmt.Sprintf("'%s' is not a valid url", r.FormValue("url")))
