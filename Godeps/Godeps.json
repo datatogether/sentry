@@ -27,11 +27,11 @@
 		},
 		{
 			"ImportPath": "github.com/archivers-space/archive",
-			"Rev": "f2a15611c8e4d559c500f84281f9d838064ef827"
+			"Rev": "074138a2d53dea644ec12f4d2892fd78baa01813"
 		},
 		{
 			"ImportPath": "github.com/archivers-space/ffi",
-			"Rev": "676df2e2af343537b7dffbb6b47a2c00d2f51677"
+			"Rev": "99f376acf0864754b9810704ae2b41670e17bbba"
 		},
 		{
 			"ImportPath": "github.com/aws/aws-sdk-go/aws",

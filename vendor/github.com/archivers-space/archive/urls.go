@@ -12,6 +12,11 @@ func ContentUrls(db sqlQueryable, limit, skip int) ([]*Url, error) {
 	return UnmarshalBoundedUrls(rows, limit)
 }
 
+func ContentUrlsCount(db sqlQueryable) (count int, err error) {
+	err = db.QueryRow(qContentUrlsCount).Scan(&count)
+	return
+}
+
 func ListUrls(db sqlQueryable, limit, skip int) ([]*Url, error) {
 	rows, err := db.Query(qUrlsList, limit, skip)
 	if err != nil {

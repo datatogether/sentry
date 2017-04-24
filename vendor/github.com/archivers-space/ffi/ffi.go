@@ -18,6 +18,9 @@ bue implemented in this package. Anyone investigating this avenue may wish to al
 review some of the work accomplished translating the PRONOM registry:
 http://the-fr.org
 
+UPDATE 2017-04-24: looks like the File Information Tool Set from harvard may in fact be a better
+place to start: http://projects.iq.harvard.edu/fits/home
+
 */
 package ffi
 

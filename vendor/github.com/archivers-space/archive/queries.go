@@ -1,131 +1,156 @@
 package archive
 
+// insert a collection
 const qCollectionInsert = `
-insert into collections 
+INSERT INTO collections 
   (id, created, updated, creator, title, schema, contents ) 
-values ($1, $2, $3, $4, $5, $6, $7);`
+VALUES ($1, $2, $3, $4, $5, $6, $7);`
 
+// update an existing collection, selecting by ID
 const qCollectionUpdate = `
-update collections 
-set created=$2, updated=$3, creator=$4, title=$5, schema=$6, contents=$7 
-where id = $1;`
+UPDATE collections 
+SET created=$2, updated=$3, creator=$4, title=$5, schema=$6, contents=$7 
+WHERE id = $1;`
 
+// read collection info by ID
 const qCollectionById = `
-select 
+SELECT 
   id, created, updated, creator, title, schema, contents 
-from collections 
-where id = $1;`
+FROM collections 
+WHERE id = $1;`
 
+// deleted a collection
 const qCollectionDelete = `
-delete from collections 
-where id = $1;`
+DELETE from collections 
+WHERE id = $1;`
 
+// list collections by reverse cronological date created
+// paginated
 const qCollections = `
-select
+SELECT
   id, created, updated, creator, title, schema, contents
-from collections 
-order by created desc 
-limit $1 offset $2;`
+FROM collections 
+ORDER BY created DESC 
+LIMIT $1 OFFSET $2;`
 
+// list latest metadata entries by reverse cronological order
+// paginated
 const qMetadataLatest = `
-select
+SELECT
   hash, time_stamp, key_id, subject, prev, meta 
-from metadata 
-where 
-  key_id = $1 and 
+FROM metadata 
+WHERE 
+  key_id = $1 AND 
   subject = $2 
-order by time_stamp desc;`
+ORDER BY time_stamp DESC;`
 
+// select metadata entries for a given subject hash
+// TODO - should this be paginated?
 const qMetadataForSubject = `
-select
+SELECT
   hash, time_stamp, key_id, subject, prev, meta  
-from metadata
-where 
-  subject = $1 and 
-  deleted = false and 
-  meta is not null;`
+FROM metadata
+WHERE 
+  subject = $1 AND 
+  deleted = false AND 
+  meta IS NOT NULL;`
 
+// count the number of metatadata entries for a a given user key
+// omitting empty content
 const qMetadataCountForKey = `
-select
+SELECT
   count(1)
-from metadata
-where
+FROM metadata
+WHERE
   -- confirm is not empty hash
-  hash != '1220e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' and
+  hash != '1220e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' AND
   key_id = $1;`
 
+// pagniated selection of only the latest metadata entry for each user-key/subject pair
+// paginated
 const qMetadataLatestForKey = `
-select distinct on (subject)
+SELECT DISTINCT ON (subject)
   hash, time_stamp, key_id, subject, prev, meta
-from metadata
-where
+FROM metadata
+WHERE
   key_id = $1 and
   deleted = false
-order by subject, time_stamp desc
-limit $2 offset $3;`
+ORDER BY subject, time_stamp DESC
+LIMIT $2 OFFSET $3;`
 
+// insert a metdata entry
 const qMetadataInsert = `
-insert into metadata
+INSERT INTO metadata
   (hash, time_stamp, key_id, subject, prev, meta, deleted)
-values 
+VALUES 
   ($1, $2, $3, $4, $5, $6, false);`
 
+// read a primer for a given Id
 const qPrimerById = `
-select
+SELECT
   id, created, updated, short_title, title, description, 
   parent_id, stats, meta
-from primers 
-where 
-  deleted = false and
+FROM primers 
+WHERE 
+  deleted = false AND
   id = $1;`
 
+// insert a primer
 const qPrimerInsert = `
-insert into primers
+INSERT INTO primers
   (id, created, updated, short_title, title, description, parent_id, stats, meta)
-values
+VALUES
   ($1, $2, $3, $4, $5, $6, $7, $8, $9);`
 
+// update an existing primer
 const qPrimerUpdate = `
-update primers set
+UPDATE PRIMERS set
   created = $2, updated = $3, short_title = $4, title = $5, description = $6,
   parent_id = $7, stats = $8, meta = $9
-where
-  deleted = false and
+WHERE
+  deleted = false AND
   id = $1;`
 
+// 'delete' a primer
 const qPrimerDelete = `
-update primers set
+UPDATE primers SET
   deleted = true
-where id = $1;`
+WHERE id = $1;`
 
+// read children for a given primer ID. children only, decendants are omitted.
 const qPrimerSubPrimers = `
-select
+SELECT
   id, created, updated, short_title, title, description, 
   parent_id, stats, meta
-from primers
-where 
-  deleted = false and
+FROM primers
+WHERE 
+  deleted = false AND
   parent_id = $1;`
 
+// read all of a primer's sources
 const qPrimerSources = `
-select
+SELECT
   id, created, updated, title, description, url, primer_id, crawl, stale_duration,
   last_alert_sent, meta, stats
-from sources
-where
-  deleted = false and
+FROM sources
+WHERE
+  deleted = false AND
   primer_id = $1;`
 
+// list primers by reverse chronolgical created date, no hierarchy is observed
+// paginated
 const qPrimersList = `
-select
+SELECT
   id, created, updated, short_title, title, description,
   parent_id, stats, meta
-from primers
-where
+FROM primers
+WHERE
   deleted = false
-order by created desc
-limit $1 offset $2;`
+ORDER BY created DESC
+LIMIT $1 OFFSET $2;`
 
+// list primers that have no parent ("root" or "base" primers), order by reverse chronological created date.
+// paginated
 const qBasePrimersList = `
 select
   id, created, updated, short_title, title, description,
@@ -137,92 +162,111 @@ where
 order by created desc
 limit $1 offset $2;`
 
+// list sources, ordered by reverse chronological created date
+// paginated
 const qSourcesList = `
-select
+SELECT
   id, created, updated, title, description, url, primer_id, crawl, stale_duration,
   last_alert_sent, meta, stats
-from sources
-where 
+FROM sources
+WHERE 
   deleted = false
-order by created desc
-limit $1 offset $2;`
+ORDER BY created DESC
+LIMIT $1 OFFSET $2;`
 
+// read a source for a given ID
 const qSourceById = `
-select
+SELECT
   id, created, updated, title, description, url, primer_id, crawl, stale_duration,
   last_alert_sent, meta, stats
-from sources 
-where
-  deleted = false and
+FROM sources 
+WHERE
+  deleted = false AND
   id = $1;`
 
+// read a source for a given url string
 const qSourceByUrl = `
-select
+SELECT
   id, created, updated, title, description, url, primer_id, crawl, stale_duration,
   last_alert_sent, meta, stats
-from sources 
-where
-  deleted = false and
+FROM sources 
+WHERE
+  deleted = false AND
   url = $1;`
 
+// add a source
 const qSourceInsert = `
-insert into sources 
+INSERT INTO sources 
   (id, created, updated, title, description, url, primer_id, crawl, stale_duration,
    last_alert_sent, meta, stats) 
-values 
+VALUES 
   ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);`
 
+// update an exsiting source
 const qSourceUpdate = `
-update sources 
-set 
+UPDATE sources 
+SET 
   created = $2, updated = $3, title = $4, description = $5, url = $6, primer_id = $7, 
   crawl = $8, stale_duration = $9, last_alert_sent = $10, meta = $11, stats = $12
-where
-  deleted = false and
+WHERE
+  deleted = false AND
   id = $1;`
 
+// 'delete' a source
 const qSourceDelete = `
-update sources
-set
+UPDATE sources
+SET
   deleted = true
-where 
+WHERE 
   url = $1;`
 
+// count how many URLs this source matches from the urls table
+// the passed in argument can take the form '%[arg]%' to ignore position within
+// the url string
+// warning - big & slow
 const qSourceUrlCount = `
-select count(1) 
-from urls 
-where 
+SELECT count(1) 
+FROM urls 
+WHERE 
   url ilike $1;`
 
+// list sources that have crawl column set to true, ordered by reverse chronolgical created date
+// paginated
 const qSourcesCrawling = `
-select
+SELECT
   id, created, updated, title, description, url, primer_id, crawl, stale_duration,
   last_alert_sent, meta, stats
-from sources
-where
+FROM sources
+WHERE
   deleted = false and
-  crawl = true 
-limit $1 offset $2;`
+  crawl = true
+ORDER BY created DESC
+LIMIT $1 OFFSET $2;`
 
+// enumerate all urls for a given source that are suspected to have content
+// this generates the "content urls" stat.
 const qSourceContentUrlCount = `
-select count(1) 
-from urls 
-where
-  hash != '' and
-  hash != '1220e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' and
-  content_sniff != 'text/html; charset=utf-8' and
+SELECT count(1) 
+FROM urls 
+WHERE
+  hash != '' AND
+  hash != '1220e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' AND
+  content_sniff != 'text/html; charset=utf-8' AND
   url ilike $1;`
 
+// enumerate all urls for a given source that are suspected to have content *and*
+// have an entry in the metadata table
+// this generates the "content urls" stat.
 const qSourceContentWithMetadataCount = `
-select count(1)
-from urls 
-where 
-  url ilike $1 and 
-  content_sniff != 'text/html; charset=utf-8' and
+SELECT count(1)
+FROM urls 
+WHERE 
+  url ilike $1 AND 
+  content_sniff != 'text/html; charset=utf-8' AND
   -- confirm is not empty hash
-  hash != '1220e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' and
-  hash != '' and
-  exists (select null from metadata where urls.hash = metadata.subject);`
+  hash != '1220e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' AND
+  hash != '' AND
+  EXISTS (SELECT null FROM metadata WHERE urls.hash = metadata.subject);`
 
 const qSourceUndescribedContentUrls = `
 select
@@ -294,6 +338,17 @@ where
   hash != ''
 order by created desc
 limit $1 offset $2;`
+
+const qContentUrlsCount = `
+select
+  count(1)
+from urls 
+where
+  last_get is not null and
+  content_sniff != 'text/html; charset=utf-8' and
+  content_sniff != '' and
+  hash != ''
+`
 
 const qUrlsFetched = `
 select
@@ -386,6 +441,18 @@ from urls, links
 where 
   links.src = $1 and 
   links.dst = urls.url;`
+
+const qUrlDstContentLinks = `
+select 
+  urls.url, urls.created, urls.updated, last_head, last_get, status, content_type, content_sniff, 
+  content_length, file_name, title, id, headers_took, download_took, headers, meta, hash 
+from urls, links
+where 
+  links.src = $1 and 
+  links.dst = urls.url
+  urls.hash != '' AND
+  urls.hash != '1220e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' AND
+  urls.content_sniff != 'text/html; charset=utf-8';`
 
 const qUrlSrcLinks = `
 select

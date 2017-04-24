@@ -47,3 +47,27 @@ func ReadSrcLinks(db sqlQueryable, dst *Url) ([]*Link, error) {
 
 	return links, nil
 }
+
+// ReadDstContentLinks returns a list of links that specify a gien url as src that are content urls
+func ReadDstContentLinks(db sqlQueryable, src *Url) ([]*Link, error) {
+	res, err := db.Query(qUrlDstContentLinks, src.Url)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Close()
+
+	links := make([]*Link, 0)
+	for res.Next() {
+		dst := &Url{}
+		if err := dst.UnmarshalSQL(res); err != nil {
+			return nil, err
+		}
+		l := &Link{
+			Src: src,
+			Dst: dst,
+		}
+		links = append(links, l)
+	}
+
+	return links, nil
+}

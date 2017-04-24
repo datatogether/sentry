@@ -21,6 +21,9 @@ implemented in this package. Anyone investigating this avenue may wish to also
 review some of the work accomplished translating the PRONOM registry:
 http://the-fr.org
 
+UPDATE 2017-04-24: looks like the File Information Tool Set from harvard may in
+fact be a better place to start: http://projects.iq.harvard.edu/fits/home
+
 ## Usage
 
 #### func  ExtensionMimeType
@@ -33,7 +36,7 @@ ExtensionMimeType returns a MIME-Type for a given file extension
 #### func  FilenameFromUrlString
 
 ```go
-func FilenameFromUrlString(url string) (string, error)
+func FilenameFromUrlString(rawUrl string) (string, error)
 ```
 FilenameFromUrlString returns a file with extension if the url looks like it
 resolves to a filename, otherwise it returns an empty string

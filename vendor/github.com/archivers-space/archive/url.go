@@ -159,8 +159,9 @@ func (u *Url) HandleGetResponse(db sqlQueryExecable, res *http.Response, done fu
 		}()
 	}
 
-	// additional processing for html documents
-	if u.ContentSniff == "text/html; charset=utf-8" {
+	// additional processing for html documents.
+	// sometimes xhtml documents can come back as text/plain, thus the text/plain addition
+	if u.ContentSniff == "text/html; charset=utf-8" || u.ContentSniff == "text/plain; charset=utf-8" {
 		var doc *goquery.Document
 		// Process the body to find links
 		doc, err = goquery.NewDocumentFromReader(bytes.NewBuffer(f.Data))
@@ -317,6 +318,7 @@ func (u *Url) SuspectedContentUrl() bool {
 	if filename == "" || notContentExtensions[ext] || ext == "." || ext == "" {
 		return false
 	}
+
 	return true
 }
 
