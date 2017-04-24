@@ -2,6 +2,6 @@
 	"crawl" : true,
 	"polite" : false,
 	"stale_duration_hours"  : 72,
-	"crawl_delay_seconds" : 5,
+	"crawl_delay_seconds" : 3,
 	"ProxyForceHttps" : true
 }
