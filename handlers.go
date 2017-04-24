@@ -38,10 +38,17 @@ func MemStatsHandler(w http.ResponseWriter, r *http.Request) {
 	mu.Unlock()
 }
 
-func EnquedHandler(w http.ResponseWriter, r *http.Request) {
-	mu.Lock()
-	w.Write(enquedUrls())
-	mu.Unlock()
+func QueHandler(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case "GET":
+		mu.Lock()
+		w.Write(enquedUrls())
+		mu.Unlock()
+	case "POST":
+		SeedUrlHandler(w, r)
+	default:
+		NotFoundHandler(w, r)
+	}
 }
 
 func reqUrl(r *http.Request) (*url.URL, error) {

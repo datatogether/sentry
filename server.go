@@ -54,8 +54,7 @@ func NewServerRoutes() *http.ServeMux {
 	// m.Handle("/url", middleware(UrlHandler))
 	m.Handle("/sources", middleware(CrawlingSourcesHandler))
 	m.Handle("/mem", middleware(MemStatsHandler))
-	m.Handle("/que", middleware(EnquedHandler))
-	// r.POST("/que", middleware(EnqueUrlHandler))
+	m.Handle("/que", middleware(QueHandler))
 	m.Handle("/shutdown", middleware(ShutdownHandler))
 
 	return m
