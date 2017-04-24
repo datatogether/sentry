@@ -75,7 +75,7 @@ func startCrawling() {
 				return
 			}
 
-			if err := enqueueDstLinks(u, links, ctx); err != nil {
+			if err := enqueueDstLinks(u, links, ctx.Q); err != nil {
 				log.Debugf("enque links error: %s", err.Error())
 			}
 		}))
@@ -258,7 +258,7 @@ func enqueueDomainGet(u *archive.Url, ctx *fetchbot.Context) error {
 }
 
 // enqueDstLinks works through all linked urls
-func enqueueDstLinks(u *archive.Url, links []*archive.Link, ctx *fetchbot.Context) error {
+func enqueueDstLinks(u *archive.Url, links []*archive.Link, q *fetchbot.Queue) error {
 	if links == nil || len(links) == 0 {
 		return nil
 	}
@@ -279,11 +279,13 @@ func enqueueDstLinks(u *archive.Url, links []*archive.Link, ctx *fetchbot.Contex
 				continue
 			}
 
-			if _, err := ctx.Q.SendStringHead(l.Dst.Url); err != nil {
-				log.Debugf("error: enqueue head %s - %s\n", l.Dst.Url, err)
-			} else {
-				heads++
-				enqued[l.Dst.Url] = "HEAD"
+			if q != nil {
+				if _, err := q.SendStringHead(l.Dst.Url); err != nil {
+					log.Debugf("error: enqueue head %s - %s\n", l.Dst.Url, err)
+				} else {
+					heads++
+					enqued[l.Dst.Url] = "HEAD"
+				}
 			}
 		} else {
 			if enqued[l.Dst.Url] == "" {

@@ -2,6 +2,7 @@ package archive
 
 import (
 	"database/sql"
+	"fmt"
 )
 
 func ContentUrls(db sqlQueryable, limit, skip int) ([]*Url, error) {
@@ -74,6 +75,18 @@ func UrlsForHash(db sqlQueryable, hash string) ([]*Url, error) {
 		return nil, err
 	}
 	return UnmarshalUrls(rows)
+}
+
+func ValidArchivingUrl(db sqlQueryable, url string) error {
+	var exists bool
+	err := db.QueryRow("select exists(select 1 from subprimers where $1 ilike concat('%', url ,'%'))", url).Scan(&exists)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return fmt.Errorf("Oops! Only urls contained in subprimers can be archived. cannot archive %s", url)
+	}
+	return nil
 }
 
 func UnmarshalBoundedUrls(rows *sql.Rows, limit int) ([]*Url, error) {

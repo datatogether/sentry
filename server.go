@@ -73,6 +73,9 @@ func main() {
 
 	connectToAppDb()
 
+	// we always crawl dem seeds
+	go startCrawlingSeeds()
+
 	if cfg.Crawl {
 		// what a wonderful phrase :)
 		go startCrawling()

@@ -57,12 +57,18 @@ func reqUrl(r *http.Request) (*url.URL, error) {
 }
 
 func SeedUrlHandler(w http.ResponseWriter, r *http.Request) {
-	if queue != nil {
+	if seedQueue != nil {
 		// u, err := NormalizeURLString(r.FormValue("url"))
 		parsedUrl, err := reqUrl(r)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			io.WriteString(w, fmt.Sprintf("'%s' is not a valid url", r.FormValue("url")))
+			return
+		}
+
+		if err := archive.ValidArchivingUrl(appDB, parsedUrl.String()); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			io.WriteString(w, err.Error())
 			return
 		}
 
@@ -88,7 +94,11 @@ func SeedUrlHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		queue.SendStringGet(parsedUrl.String())
+		mu.Lock()
+		defer mu.Unlock()
+		enqued[parsedUrl.String()] = "GET"
+
+		seedQueue.SendStringGet(parsedUrl.String())
 		w.WriteHeader(http.StatusOK)
 		io.WriteString(w, fmt.Sprintf("added url: %s", parsedUrl.String()))
 	} else {
