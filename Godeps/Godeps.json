@@ -27,7 +27,7 @@
 		},
 		{
 			"ImportPath": "github.com/archivers-space/archive",
-			"Rev": "074138a2d53dea644ec12f4d2892fd78baa01813"
+			"Rev": "fc38abb674299bf635e0024ec3d485d24c16604a"
 		},
 		{
 			"ImportPath": "github.com/archivers-space/ffi",

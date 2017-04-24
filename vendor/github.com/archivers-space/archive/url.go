@@ -388,7 +388,7 @@ func (u *Url) ExtractDocLinks(db sqlQueryExecable, doc *goquery.Document) ([]*Li
 
 	links := make([]*Link, 0)
 	// generate a list of normalized links
-	doc.Find("a[href]").Each(func(i int, s *goquery.Selection) {
+	doc.Find("[href]").Each(func(i int, s *goquery.Selection) {
 		val, _ := s.Attr("href")
 
 		// Resolve destination address to source url

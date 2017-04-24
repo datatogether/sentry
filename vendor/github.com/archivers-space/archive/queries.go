@@ -423,7 +423,7 @@ where
 
 const qUrlInboundLinkUrlStrings = `
 select src 
-from links 
+from links
 where
   dst = $1;`
 
@@ -452,7 +452,8 @@ where
   links.dst = urls.url
   urls.hash != '' AND
   urls.hash != '1220e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' AND
-  urls.content_sniff != 'text/html; charset=utf-8';`
+  urls.content_sniff != 'text/html; charset=utf-8'
+;`
 
 const qUrlSrcLinks = `
 select
