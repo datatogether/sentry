@@ -54,7 +54,7 @@ func startCrawlingContent() {
 				}
 			}
 
-			links, err := u.HandleGetResponse(appDB, res, done)
+			_, err = u.HandleGetResponse(appDB, res, done)
 			if err != nil {
 				log.Info(err.Error())
 				return
