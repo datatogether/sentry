@@ -11,3 +11,9 @@
 - [ ] Alerts Column
 - [ ] Setup email Alerts
 - [ ] 200-to-404 alert
+
+# Related Projects
+
+In parallel to building this tool, we have engaged in efforts to map the landscape of similar projects:
+
+:eyes: See: [**Comparison of web archiving software**](https://github.com/archivers-space/research/tree/master/web_archiving)
