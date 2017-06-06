@@ -39,7 +39,7 @@
 		},
 		{
 			"ImportPath": "github.com/archivers-space/sqlutil",
-			"Rev": "d77bd75a69b01ddf20310b36d465ad35e19e7c03"
+			"Rev": "1bcf0837e1b6031578a3c7e804683ac20b3e51be"
 		},
 		{
 			"ImportPath": "github.com/aws/aws-sdk-go/aws",
@@ -193,13 +193,13 @@
 		},
 		{
 			"ImportPath": "github.com/lib/pq",
-			"Comment": "go1.0-cutoff-151-gba5d4f7",
-			"Rev": "ba5d4f7a35561e22fbdf7a39aa0070f4d460cfc0"
+			"Comment": "go1.0-cutoff-171-g8837942",
+			"Rev": "8837942c3e09574accbc5f150e2c5e057189cace"
 		},
 		{
 			"ImportPath": "github.com/lib/pq/oid",
-			"Comment": "go1.0-cutoff-151-gba5d4f7",
-			"Rev": "ba5d4f7a35561e22fbdf7a39aa0070f4d460cfc0"
+			"Comment": "go1.0-cutoff-171-g8837942",
+			"Rev": "8837942c3e09574accbc5f150e2c5e057189cace"
 		},
 		{
 			"ImportPath": "github.com/multiformats/go-multihash",
@@ -213,8 +213,8 @@
 		},
 		{
 			"ImportPath": "github.com/sirupsen/logrus",
-			"Comment": "v0.11.5-12-g10f801e",
-			"Rev": "10f801ebc38b33738c9d17d50860f484a0988ff5"
+			"Comment": "v0.11.5-46-g5e5dc89",
+			"Rev": "5e5dc898656f695e2a086b8e12559febbfc01562"
 		},
 		{
 			"ImportPath": "github.com/temoto/robotstxt-go",
@@ -222,59 +222,59 @@
 		},
 		{
 			"ImportPath": "golang.org/x/crypto/acme",
-			"Rev": "453249f01cfeb54c3d549ddb75ff152ca243f9d8"
+			"Rev": "e1a4589e7d3ea14a3352255d04b6f1a418845e5e"
 		},
 		{
 			"ImportPath": "golang.org/x/crypto/acme/autocert",
-			"Rev": "453249f01cfeb54c3d549ddb75ff152ca243f9d8"
+			"Rev": "e1a4589e7d3ea14a3352255d04b6f1a418845e5e"
 		},
 		{
 			"ImportPath": "golang.org/x/crypto/blake2b",
-			"Rev": "453249f01cfeb54c3d549ddb75ff152ca243f9d8"
+			"Rev": "e1a4589e7d3ea14a3352255d04b6f1a418845e5e"
 		},
 		{
 			"ImportPath": "golang.org/x/crypto/blake2s",
-			"Rev": "453249f01cfeb54c3d549ddb75ff152ca243f9d8"
+			"Rev": "e1a4589e7d3ea14a3352255d04b6f1a418845e5e"
 		},
 		{
 			"ImportPath": "golang.org/x/crypto/sha3",
-			"Rev": "453249f01cfeb54c3d549ddb75ff152ca243f9d8"
-		},
-		{
-			"ImportPath": "golang.org/x/net/context",
-			"Rev": "b4690f45fa1cafc47b1c280c2e75116efe40cc13"
-		},
-		{
-			"ImportPath": "golang.org/x/net/context/ctxhttp",
-			"Rev": "b4690f45fa1cafc47b1c280c2e75116efe40cc13"
+			"Rev": "e1a4589e7d3ea14a3352255d04b6f1a418845e5e"
 		},
 		{
 			"ImportPath": "golang.org/x/net/html",
-			"Rev": "b4690f45fa1cafc47b1c280c2e75116efe40cc13"
+			"Rev": "59a0b19b5533c7977ddeb86b017bf507ed407b12"
 		},
 		{
 			"ImportPath": "golang.org/x/net/html/atom",
-			"Rev": "b4690f45fa1cafc47b1c280c2e75116efe40cc13"
+			"Rev": "59a0b19b5533c7977ddeb86b017bf507ed407b12"
 		},
 		{
 			"ImportPath": "golang.org/x/net/idna",
-			"Rev": "b4690f45fa1cafc47b1c280c2e75116efe40cc13"
+			"Rev": "59a0b19b5533c7977ddeb86b017bf507ed407b12"
 		},
 		{
 			"ImportPath": "golang.org/x/sys/unix",
-			"Rev": "e24f485414aeafb646f6fca458b0bf869c0880a1"
+			"Rev": "b90f89a1e7a9c1f6b918820b3daa7f08488c8594"
+		},
+		{
+			"ImportPath": "golang.org/x/text/secure/bidirule",
+			"Rev": "ccbd3f7822129ff389f8ca4858a9b9d4d910531c"
 		},
 		{
 			"ImportPath": "golang.org/x/text/transform",
-			"Rev": "06d6eba81293389cafdff7fca90d75592194b2d9"
+			"Rev": "ccbd3f7822129ff389f8ca4858a9b9d4d910531c"
+		},
+		{
+			"ImportPath": "golang.org/x/text/unicode/bidi",
+			"Rev": "ccbd3f7822129ff389f8ca4858a9b9d4d910531c"
 		},
 		{
 			"ImportPath": "golang.org/x/text/unicode/norm",
-			"Rev": "06d6eba81293389cafdff7fca90d75592194b2d9"
+			"Rev": "ccbd3f7822129ff389f8ca4858a9b9d4d910531c"
 		},
 		{
 			"ImportPath": "golang.org/x/text/width",
-			"Rev": "06d6eba81293389cafdff7fca90d75592194b2d9"
+			"Rev": "ccbd3f7822129ff389f8ca4858a9b9d4d910531c"
 		}
 	]
 }

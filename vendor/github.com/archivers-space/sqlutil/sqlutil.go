@@ -40,9 +40,7 @@ func ConnectToDb(driverName, url string, db *sql.DB) error {
 			time.Sleep(time.Second)
 			continue
 		}
-		// if err := initializeDatabase(appDB); err != nil {
-		// 	fmt.Println(err.Error())
-		// }
+
 		*db = *conn
 		break
 	}

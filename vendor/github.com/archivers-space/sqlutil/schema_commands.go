@@ -45,32 +45,35 @@ func (s *SchemaCommands) DropAll(db Execable) error {
 	return nil
 }
 
-func (s *SchemaCommands) Create(db Execable, tables ...string) error {
-	for _, t := range tables {
-		cmd := fmt.Sprintf("create-%s", t)
-		if _, err := s.file.Exec(db, cmd); err != nil {
-			return fmt.Errorf("error executing '%s': %s", cmd, err.Error())
+// Create tables if they don't already exist
+func (s *SchemaCommands) Create(db Execable, tables ...string) ([]string, error) {
+	created := []string{}
+	for _, table := range tables {
+		exists := false
+		if err := db.QueryRow(fmt.Sprintf("select exists(select 1 from %s limit 1)", table)).Scan(&exists); err == nil || exists {
+			continue
 		}
+		cmd := fmt.Sprintf("create-%s", table)
+		if _, err := s.file.Exec(db, cmd); err != nil {
+			return created, fmt.Errorf("error executing '%s': %s", cmd, err.Error())
+		}
+		created = append(created, table)
 	}
-	return nil
+	return created, nil
 }
 
 func (s *SchemaCommands) DropAllCreate(db Execable, tables ...string) error {
 	if err := s.DropAll(db); err != nil {
 		return err
 	}
-	if err := s.Create(db, tables...); err != nil {
+	if _, err := s.Create(db, tables...); err != nil {
 		return err
 	}
 	return nil
 }
 
-// InitializeDatabase drops everything and calls create on all tables
-// WARNING - THIS ZAPS WHATEVER DB IT'S GIVEN. DO NOT CALL THIS SHIT.
-// used for testing only, returns a teardown func
-// func (s *SchemaCommands) InitializeDatabase(db Execable) error {
-// 	// TODO - infer table names from de-prefixed create commands,
-// 	// use this to check for data existence
+// // InitializeDatabase drops everything and calls create on all tables
+// func (s *SchemaCommands) InitializeDatabase(db Execable,) error {
 // 	// // test query to check for database schema existence
 // 	// var exists bool
 // 	// if err = db.QueryRow("select exists(select * from primers limit 1)").Scan(&exists); err == nil {

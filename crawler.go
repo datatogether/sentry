@@ -127,7 +127,7 @@ func startCrawling() {
 	log.Info("starting A crawler (main)")
 	f = fetchbot.New(h)
 	f.DisablePoliteness = !cfg.Polite
-	f.CrawlDelay = cfg.CrawlDelaySeconds * time.Second
+	f.CrawlDelay = time.Duration(cfg.CrawlDelaySeconds) * time.Second
 
 	// Start processing
 	q := f.Start()

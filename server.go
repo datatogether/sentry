@@ -3,6 +3,8 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"github.com/archivers-space/sqlutil"
+	_ "github.com/lib/pq"
 	"github.com/sirupsen/logrus"
 	"net/http"
 	"os"
@@ -24,7 +26,7 @@ var (
 	log = logrus.New()
 
 	// application database connection
-	appDB *sql.DB
+	appDB = &sql.DB{}
 )
 
 func init() {
@@ -33,6 +35,58 @@ func init() {
 	log.Formatter = &logrus.TextFormatter{
 		ForceColors: true,
 	}
+}
+
+func main() {
+	var err error
+	cfg, err = initConfig(os.Getenv("GOLANG_ENV"))
+	if err != nil {
+		// panic if the server is missing a vital configuration detail
+		panic(fmt.Errorf("server configuration error: %s", err.Error()))
+	}
+	if cfg.Debug {
+		log.Level = logrus.DebugLevel
+	}
+
+	sqlutil.ConnectToDb("postgres", cfg.PostgresDbUrl, appDB)
+
+	// create any tables if they don't exist
+	sc, err := sqlutil.LoadSchemaCommands(packagePath("sql/schema.sql"))
+	if err != nil {
+		log.Infof("error loading schema file: %s", err)
+	} else {
+		created, err := sc.Create(appDB, "primers", "sources", "urls", "links", "metadata", "snapshots", "collections")
+		if err != nil {
+			log.Infof("error creating missing tables: %s", err)
+		} else if len(created) > 0 {
+			log.Info("created tables:", created)
+		}
+	}
+
+	// always crawl seeds
+	go startCrawlingSeeds()
+
+	if cfg.Crawl {
+		// what a wonderful phrase :)
+		go startCrawling()
+	}
+
+	// run cron every 5 hours for now
+	go StartCron(time.Hour * 5)
+
+	s := &http.Server{}
+	// connect mux to server
+	s.Handler = NewServerRoutes()
+
+	// print notable config settings
+	// printConfigInfo()
+
+	// fire it up!
+	fmt.Println("starting server on port", cfg.Port)
+
+	// start server wrapped in a log.Fatal. http.ListenAndServe will not
+	// return unless a fatal error occurs
+	log.Fatal(StartServer(cfg, s))
 }
 
 // NewServerRoutes returns a Muxer that has all API routes.
@@ -58,43 +112,4 @@ func NewServerRoutes() *http.ServeMux {
 	m.Handle("/shutdown", middleware(ShutdownHandler))
 
 	return m
-}
-
-func main() {
-	var err error
-	cfg, err = initConfig(os.Getenv("GOLANG_ENV"))
-	if err != nil {
-		// panic if the server is missing a vital configuration detail
-		panic(fmt.Errorf("server configuration error: %s", err.Error()))
-	}
-	if cfg.Debug {
-		log.Level = logrus.DebugLevel
-	}
-
-	connectToAppDb()
-
-	// we always crawl dem seeds
-	go startCrawlingSeeds()
-
-	if cfg.Crawl {
-		// what a wonderful phrase :)
-		go startCrawling()
-	}
-
-	// run cron every 5 hours for now
-	go StartCron(time.Hour * 5)
-
-	s := &http.Server{}
-	// connect mux to server
-	s.Handler = NewServerRoutes()
-
-	// print notable config settings
-	// printConfigInfo()
-
-	// fire it up!
-	fmt.Println("starting server on port", cfg.Port)
-
-	// start server wrapped in a log.Fatal b/c http.ListenAndServe will not
-	// return unless there's an error
-	log.Fatal(StartServer(cfg, s))
 }

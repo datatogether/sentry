@@ -45,14 +45,15 @@ type config struct {
 	TLS bool
 
 	// How long before a url is considered stale, in hours.
-	StaleDurationHours time.Duration
+	StaleDurationHours int
+
 	// crawl urls?
 	Crawl bool
 	// Weather or not the crawler respects robots.txt
 	Polite bool
 	// how long to wait between requests. one day this'll be dynamically
 	// modifiable
-	CrawlDelaySeconds time.Duration
+	CrawlDelaySeconds int
 	// Content Types to Store
 	StoreContentTypes []string
 
@@ -94,7 +95,8 @@ type config struct {
 
 // StaleDuration turns cfg.StaleDurationHours into a time.Duration
 func (cfg *config) StaleDuration() time.Duration {
-	return cfg.StaleDurationHours * time.Hour
+	return 72 * time.Hour
+	// return cfg.StaleDurationHours * time.Hour
 }
 
 // initConfig pulls configuration from config.json

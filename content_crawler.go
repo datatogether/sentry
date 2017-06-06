@@ -71,7 +71,7 @@ func startCrawlingContent() {
 
 	contentFetcher = fetchbot.New(h)
 	contentFetcher.DisablePoliteness = !cfg.Polite
-	contentFetcher.CrawlDelay = cfg.CrawlDelaySeconds * time.Second
+	contentFetcher.CrawlDelay = time.Duration(cfg.CrawlDelaySeconds) * time.Second
 
 	// Start processing
 	log.Info("starting B crawler (content)")

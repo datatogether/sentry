@@ -71,7 +71,7 @@ func startCrawlingSeeds() {
 
 	seedFetcher = fetchbot.New(h)
 	seedFetcher.DisablePoliteness = !cfg.Polite
-	seedFetcher.CrawlDelay = cfg.CrawlDelaySeconds * time.Second
+	seedFetcher.CrawlDelay = time.Duration(cfg.CrawlDelaySeconds) * time.Second
 
 	// Start processing
 	log.Info("starting C crawler (seeds)")
