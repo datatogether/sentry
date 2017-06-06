@@ -1,6 +1,10 @@
 package archive
 
-func ListCollections(db sqlQueryable, limit, skip int) ([]*Collection, error) {
+import (
+	"github.com/archivers-space/sqlutil"
+)
+
+func ListCollections(db sqlutil.Queryable, limit, skip int) ([]*Collection, error) {
 	rows, err := db.Query(qCollections, limit, skip)
 	if err != nil {
 		return nil, err

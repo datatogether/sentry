@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/archivers-space/sqlutil"
 	"github.com/multiformats/go-multihash"
 	"time"
 )
@@ -47,7 +48,7 @@ func (m Metadata) String() string {
 }
 
 // MetadatasBySubject returns all metadata for a given subject hash
-func MetadataBySubject(db sqlQueryable, subject string) ([]*Metadata, error) {
+func MetadataBySubject(db sqlutil.Queryable, subject string) ([]*Metadata, error) {
 	res, err := db.Query(qMetadataForSubject, subject)
 	if err != nil {
 		return nil, err
@@ -66,12 +67,12 @@ func MetadataBySubject(db sqlQueryable, subject string) ([]*Metadata, error) {
 	return metadata, nil
 }
 
-func MetadataCountByKey(db sqlQueryable, keyId string) (count int, err error) {
+func MetadataCountByKey(db sqlutil.Queryable, keyId string) (count int, err error) {
 	err = db.QueryRow(qMetadataCountForKey, keyId).Scan(&count)
 	return
 }
 
-func MetadataByKey(db sqlQueryable, keyId string, limit, offset int) ([]*Metadata, error) {
+func MetadataByKey(db sqlutil.Queryable, keyId string, limit, offset int) ([]*Metadata, error) {
 	rows, err := db.Query(qMetadataLatestForKey, keyId, limit, offset)
 	if err != nil {
 		return nil, err
@@ -94,7 +95,7 @@ func MetadataByKey(db sqlQueryable, keyId string, limit, offset int) ([]*Metadat
 
 // LatestMetadata gives the most recent metadata timestamp for a given keyId & subject
 // combination if one exists
-func LatestMetadata(db sqlQueryable, keyId, subject string) (m *Metadata, err error) {
+func LatestMetadata(db sqlutil.Queryable, keyId, subject string) (m *Metadata, err error) {
 	row := db.QueryRow(qMetadataLatest, keyId, subject)
 	m = &Metadata{}
 	err = m.UnmarshalSQL(row)
@@ -103,7 +104,7 @@ func LatestMetadata(db sqlQueryable, keyId, subject string) (m *Metadata, err er
 
 // NextMetadata returns the next metadata block for a given subject. If no metablock
 // exists a new one is created
-func NextMetadata(db sqlQueryable, keyId, subject string) (*Metadata, error) {
+func NextMetadata(db sqlutil.Queryable, keyId, subject string) (*Metadata, error) {
 	m, err := LatestMetadata(db, keyId, subject)
 	if err != nil {
 		if err == ErrNotFound {
@@ -162,7 +163,7 @@ func (m *Metadata) calcHash() error {
 }
 
 // WriteMetadata creates a snapshot record in the DB from a given Url struct
-func (m *Metadata) Write(db sqlQueryExecable) error {
+func (m *Metadata) Write(db sqlutil.Execable) error {
 	// TODO - check for valid subject hash
 
 	m.Timestamp = time.Now().Round(time.Second)
@@ -195,7 +196,7 @@ func (m *Metadata) Write(db sqlQueryExecable) error {
 }
 
 // UnmarshalSQL reads an SQL result into the snapshot receiver
-func (m *Metadata) UnmarshalSQL(row sqlScannable) error {
+func (m *Metadata) UnmarshalSQL(row sqlutil.Scannable) error {
 	var (
 		hash, keyId, subject, prev string
 		timestamp                  time.Time

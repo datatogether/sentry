@@ -2,9 +2,10 @@ package archive
 
 import (
 	"database/sql"
+	"github.com/archivers-space/sqlutil"
 )
 
-func ListUncrawlables(db sqlQueryable, limit, offset int) ([]*Uncrawlable, error) {
+func ListUncrawlables(db sqlutil.Queryable, limit, offset int) ([]*Uncrawlable, error) {
 	rows, err := db.Query(qUncrawlablesList, limit, offset)
 	if err != nil {
 		return nil, err

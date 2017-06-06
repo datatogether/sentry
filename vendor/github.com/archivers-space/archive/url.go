@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/archivers-space/ffi"
+	"github.com/archivers-space/sqlutil"
 	"net/http"
 	"net/url"
 	"path/filepath"
@@ -98,7 +99,7 @@ func (u *Url) ParsedUrl() (*url.URL, error) {
 }
 
 // Issue a GET request to this URL if it's eligible for one
-func (u *Url) Get(db sqlQueryExecable, done func(err error)) (links []*Link, err error) {
+func (u *Url) Get(db sqlutil.Execable, done func(err error)) (links []*Link, err error) {
 	// TODO - should screen to keep GET's within whitelisted domains?
 	if !u.ShouldEnqueueGet() {
 		// we've fetched this url recently, bail with already-stored links
@@ -126,7 +127,7 @@ func rawHeadersSlice(res *http.Response) (headers []string) {
 
 // HandleGetResponse performs all necessary actions in response to a GET request, regardless
 // of weather it came from a crawl or archive request
-func (u *Url) HandleGetResponse(db sqlQueryExecable, res *http.Response, done func(err error)) (links []*Link, err error) {
+func (u *Url) HandleGetResponse(db sqlutil.Execable, res *http.Response, done func(err error)) (links []*Link, err error) {
 	f, err := NewFileFromRes(u.Url, res)
 	if err != nil {
 		done(err)
@@ -212,7 +213,7 @@ func (u *Url) HandleGetResponse(db sqlQueryExecable, res *http.Response, done fu
 }
 
 // InboundLinks returns a slice of url strings that link to this url
-func (u *Url) InboundLinks(db sqlQueryable) ([]string, error) {
+func (u *Url) InboundLinks(db sqlutil.Queryable) ([]string, error) {
 	res, err := db.Query(qUrlInboundLinkUrlStrings, u.Url)
 	if err != nil {
 		return nil, err
@@ -232,7 +233,7 @@ func (u *Url) InboundLinks(db sqlQueryable) ([]string, error) {
 }
 
 // Outbound returns a slice of url strings that this url links to
-func (u *Url) OutboundLinks(db sqlQueryable) ([]string, error) {
+func (u *Url) OutboundLinks(db sqlutil.Queryable) ([]string, error) {
 	res, err := db.Query(qUrlOutboundLinkUrlStrings, u.Url)
 	if err != nil {
 		return nil, err
@@ -252,7 +253,7 @@ func (u *Url) OutboundLinks(db sqlQueryable) ([]string, error) {
 }
 
 // ReadContexts reads all context information contributed about this url
-// func (u *Url) ReadContexts(db sqlQueryable) ([]*UrlContext, error) {
+// func (u *Url) ReadContexts(db sqlutil.Queryable) ([]*UrlContext, error) {
 // 	res, err := db.Query(fmt.Sprintf("select %s from context where context.url = $1", urlContextCols()), u.Url)
 // 	if err != nil {
 // 		return nil, err
@@ -337,7 +338,7 @@ func (u *Url) File() (*File, error) {
 }
 
 // Read url from db
-func (u *Url) Read(db sqlQueryable) error {
+func (u *Url) Read(db sqlutil.Queryable) error {
 	var row *sql.Row
 	if u.Id != "" {
 		row = db.QueryRow(qUrlById, u.Id)
@@ -350,7 +351,7 @@ func (u *Url) Read(db sqlQueryable) error {
 }
 
 // Insert (create)
-func (u *Url) Insert(db sqlQueryExecable) error {
+func (u *Url) Insert(db sqlutil.Execable) error {
 	u.Created = time.Now().Round(time.Second)
 	u.Updated = u.Created
 	u.Id = uuid.New()
@@ -359,7 +360,7 @@ func (u *Url) Insert(db sqlQueryExecable) error {
 }
 
 // Update url db entry
-func (u *Url) Update(db sqlQueryExecable) error {
+func (u *Url) Update(db sqlutil.Execable) error {
 	u.Updated = time.Now().Round(time.Second)
 	if u.ContentLength < -1 {
 		u.ContentLength = -1
@@ -372,7 +373,7 @@ func (u *Url) Update(db sqlQueryExecable) error {
 }
 
 // Delete a url, should only do for erronious additions
-func (u *Url) Delete(db sqlQueryExecable) error {
+func (u *Url) Delete(db sqlutil.Execable) error {
 	_, err := db.Exec(qUrlDelete, u.Url)
 	return err
 }
@@ -380,7 +381,7 @@ func (u *Url) Delete(db sqlQueryExecable) error {
 // ExtractDocLinks extracts & stores a page's linked documents
 // by selecting all a[href] links from a given qoquery document, using
 // the receiver *Url as the base
-func (u *Url) ExtractDocLinks(db sqlQueryExecable, doc *goquery.Document) ([]*Link, error) {
+func (u *Url) ExtractDocLinks(db sqlutil.Execable, doc *goquery.Document) ([]*Link, error) {
 	pUrl, err := u.ParsedUrl()
 	if err != nil {
 		return nil, err
@@ -445,7 +446,7 @@ func (u *Url) HeadersMap() (headers map[string]string) {
 }
 
 // Metadata collects up all metadata as
-// func (u *Url) Metadata(db sqlQueryable) (*Meta, error) {
+// func (u *Url) Metadata(db sqlutil.Queryable) (*Meta, error) {
 // 	contexts, err := u.ReadContexts(db)
 // 	if err != nil {
 // 		return nil, err
@@ -486,7 +487,7 @@ func (u *Url) HeadersMap() (headers map[string]string) {
 
 // UnmarshalSQL reads an sql response into the url receiver
 // it expects the request to have used urlCols() for selection
-func (u *Url) UnmarshalSQL(row sqlScannable) (err error) {
+func (u *Url) UnmarshalSQL(row sqlutil.Scannable) (err error) {
 	var (
 		rawurl, mime, sniff, title, id, hash, fn string
 		created, updated                         time.Time

@@ -2,6 +2,7 @@ package archive
 
 import (
 	"encoding/json"
+	"github.com/archivers-space/sqlutil"
 	"time"
 )
 
@@ -23,7 +24,7 @@ type Snapshot struct {
 }
 
 // SnapshotsForUrl returns all snapshots for a given url string
-func SnapshotsForUrl(db sqlQueryable, url string) ([]*Snapshot, error) {
+func SnapshotsForUrl(db sqlutil.Queryable, url string) ([]*Snapshot, error) {
 	res, err := db.Query(qSnapshotsByUrl, url)
 	if err != nil {
 		return nil, err
@@ -43,7 +44,7 @@ func SnapshotsForUrl(db sqlQueryable, url string) ([]*Snapshot, error) {
 }
 
 // WriteSnapshot creates a snapshot record in the DB from a given Url struct
-func WriteSnapshot(db sqlQueryExecable, u *Url) error {
+func WriteSnapshot(db sqlutil.Execable, u *Url) error {
 	data, err := json.Marshal(u.Headers)
 	if err != nil {
 		return err
@@ -53,7 +54,7 @@ func WriteSnapshot(db sqlQueryExecable, u *Url) error {
 }
 
 // UnmarshalSQL reads an SQL result into the snapshot receiver
-func (s *Snapshot) UnmarshalSQL(row sqlScannable) error {
+func (s *Snapshot) UnmarshalSQL(row sqlutil.Scannable) error {
 	var (
 		url, hash  string
 		created    time.Time

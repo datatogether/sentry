@@ -2,6 +2,8 @@ package archive
 
 import (
 	"database/sql"
+	"github.com/archivers-space/sqlutil"
+	"github.com/pborman/uuid"
 	"time"
 )
 
@@ -53,7 +55,7 @@ type Uncrawlable struct {
 }
 
 // Read uncrawlable from db
-func (c *Uncrawlable) Read(db sqlQueryable) error {
+func (c *Uncrawlable) Read(db sqlutil.Queryable) error {
 	if c.Url != "" {
 		row := db.QueryRow(qUncrawlableByUrl, c.Url)
 		return c.UnmarshalSQL(row)
@@ -62,11 +64,11 @@ func (c *Uncrawlable) Read(db sqlQueryable) error {
 }
 
 // Save a uncrawlable
-func (c *Uncrawlable) Save(db sqlQueryExecable) error {
+func (c *Uncrawlable) Save(db sqlutil.Execable) error {
 	prev := &Uncrawlable{Url: c.Url}
 	if err := prev.Read(db); err != nil {
 		if err == ErrNotFound {
-			c.Id = NewUuid()
+			c.Id = uuid.New()
 			c.Created = time.Now().Round(time.Second)
 			c.Updated = c.Created
 			_, err := db.Exec(qUncrawlableInsert, c.SQLArgs()...)
@@ -83,14 +85,14 @@ func (c *Uncrawlable) Save(db sqlQueryExecable) error {
 }
 
 // Delete a uncrawlable, should only do for erronious additions
-func (c *Uncrawlable) Delete(db sqlQueryExecable) error {
+func (c *Uncrawlable) Delete(db sqlutil.Execable) error {
 	_, err := db.Exec(qUncrawlableDelete, c.Url)
 	return err
 }
 
 // UnmarshalSQL reads an sql response into the uncrawlable receiver
 // it expects the request to have used uncrawlableCols() for selection
-func (u *Uncrawlable) UnmarshalSQL(row sqlScannable) (err error) {
+func (u *Uncrawlable) UnmarshalSQL(row sqlutil.Scannable) (err error) {
 	var (
 		created, updated                         time.Time
 		id, creator, url, name, email, eventName string

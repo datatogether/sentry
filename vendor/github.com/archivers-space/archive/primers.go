@@ -2,10 +2,11 @@ package archive
 
 import (
 	"database/sql"
+	"github.com/archivers-space/sqlutil"
 )
 
 // CrawlingPrimers
-// func CrawlingPrimers(db sqlQueryable, limit, offset int) (primers []*Primer, err error) {
+// func CrawlingPrimers(db sqlutil.Queryable, limit, offset int) (primers []*Primer, err error) {
 // 	rows, err := db.Query(qPrimersCrawling, limit, offset)
 // 	if err != nil {
 // 		return primers, err
@@ -24,8 +25,14 @@ import (
 // 	return
 // }
 
+// CountPrimers returns the total number of primers
+func CountPrimers(db sqlutil.Queryable) (count int64, err error) {
+	err = db.QueryRow(qPrimersCount).Scan(&count)
+	return
+}
+
 // ListPrimers
-func ListPrimers(db sqlQueryable, limit, offset int) (primers []*Primer, err error) {
+func ListPrimers(db sqlutil.Queryable, limit, offset int) (primers []*Primer, err error) {
 	rows, err := db.Query(qPrimersList, limit, offset)
 	if err != nil {
 		return nil, err
@@ -35,7 +42,7 @@ func ListPrimers(db sqlQueryable, limit, offset int) (primers []*Primer, err err
 }
 
 // BasePrimers lists primers that have no parent
-func BasePrimers(db sqlQueryable, limit, offset int) (primers []*Primer, err error) {
+func BasePrimers(db sqlutil.Queryable, limit, offset int) (primers []*Primer, err error) {
 	rows, err := db.Query(qBasePrimersList, limit, offset)
 	if err != nil {
 		return nil, err

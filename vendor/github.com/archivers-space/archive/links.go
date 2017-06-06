@@ -1,7 +1,11 @@
 package archive
 
+import (
+	"github.com/archivers-space/sqlutil"
+)
+
 // ReadDstLinks returns all links that specify a given url as src
-func ReadDstLinks(db sqlQueryable, src *Url) ([]*Link, error) {
+func ReadDstLinks(db sqlutil.Queryable, src *Url) ([]*Link, error) {
 	res, err := db.Query(qUrlDstLinks, src.Url)
 	if err != nil {
 		return nil, err
@@ -25,7 +29,7 @@ func ReadDstLinks(db sqlQueryable, src *Url) ([]*Link, error) {
 }
 
 // ReadSrcLinks returns all links that specify a given url as dst
-func ReadSrcLinks(db sqlQueryable, dst *Url) ([]*Link, error) {
+func ReadSrcLinks(db sqlutil.Queryable, dst *Url) ([]*Link, error) {
 	res, err := db.Query(qUrlSrcLinks, dst.Url)
 	if err != nil {
 		return nil, err
@@ -49,7 +53,7 @@ func ReadSrcLinks(db sqlQueryable, dst *Url) ([]*Link, error) {
 }
 
 // ReadDstContentLinks returns a list of links that specify a gien url as src that are content urls
-func ReadDstContentLinks(db sqlQueryable, src *Url) ([]*Link, error) {
+func ReadDstContentLinks(db sqlutil.Queryable, src *Url) ([]*Link, error) {
 	res, err := db.Query(qUrlDstContentLinks, src.Url)
 	if err != nil {
 		return nil, err

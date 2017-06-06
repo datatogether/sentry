@@ -3,9 +3,10 @@ package archive
 import (
 	"database/sql"
 	"fmt"
+	"github.com/archivers-space/sqlutil"
 )
 
-func ContentUrls(db sqlQueryable, limit, skip int) ([]*Url, error) {
+func ContentUrls(db sqlutil.Queryable, limit, skip int) ([]*Url, error) {
 	rows, err := db.Query(qContentUrlsList, limit, skip)
 	if err != nil {
 		return nil, err
@@ -13,12 +14,12 @@ func ContentUrls(db sqlQueryable, limit, skip int) ([]*Url, error) {
 	return UnmarshalBoundedUrls(rows, limit)
 }
 
-func ContentUrlsCount(db sqlQueryable) (count int, err error) {
+func ContentUrlsCount(db sqlutil.Queryable) (count int, err error) {
 	err = db.QueryRow(qContentUrlsCount).Scan(&count)
 	return
 }
 
-func ListUrls(db sqlQueryable, limit, skip int) ([]*Url, error) {
+func ListUrls(db sqlutil.Queryable, limit, skip int) ([]*Url, error) {
 	rows, err := db.Query(qUrlsList, limit, skip)
 	if err != nil {
 		return nil, err
@@ -27,7 +28,7 @@ func ListUrls(db sqlQueryable, limit, skip int) ([]*Url, error) {
 	return UnmarshalBoundedUrls(rows, limit)
 }
 
-func FetchedUrls(db sqlQueryable, limit, offset int) ([]*Url, error) {
+func FetchedUrls(db sqlutil.Queryable, limit, offset int) ([]*Url, error) {
 	if limit == 0 {
 		limit = 100
 	}
@@ -48,7 +49,7 @@ func FetchedUrls(db sqlQueryable, limit, offset int) ([]*Url, error) {
 	return urls, nil
 }
 
-func UnfetchedUrls(db sqlQueryable, limit, offset int) ([]*Url, error) {
+func UnfetchedUrls(db sqlutil.Queryable, limit, offset int) ([]*Url, error) {
 	if limit == 0 {
 		limit = 50
 	}
@@ -69,7 +70,7 @@ func UnfetchedUrls(db sqlQueryable, limit, offset int) ([]*Url, error) {
 	return urls, nil
 }
 
-func UrlsForHash(db sqlQueryable, hash string) ([]*Url, error) {
+func UrlsForHash(db sqlutil.Queryable, hash string) ([]*Url, error) {
 	rows, err := db.Query(qUrlsForHash, hash)
 	if err != nil {
 		return nil, err
@@ -77,7 +78,7 @@ func UrlsForHash(db sqlQueryable, hash string) ([]*Url, error) {
 	return UnmarshalUrls(rows)
 }
 
-func ValidArchivingUrl(db sqlQueryable, url string) error {
+func ValidArchivingUrl(db sqlutil.Queryable, url string) error {
 	var exists bool
 	err := db.QueryRow("select exists(select 1 from subprimers where $1 ilike concat('%', url ,'%'))", url).Scan(&exists)
 	if err != nil {

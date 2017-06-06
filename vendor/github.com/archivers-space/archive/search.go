@@ -1,6 +1,10 @@
 package archive
 
-func Search(db sqlQueryable, q string, limit, offset int) ([]*Url, error) {
+import (
+	"github.com/archivers-space/sqlutil"
+)
+
+func Search(db sqlutil.Queryable, q string, limit, offset int) ([]*Url, error) {
 	if limit == 0 || limit > 50 {
 		limit = 50
 	}

@@ -4,8 +4,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/archivers-space/sqlutil"
 	"github.com/pborman/uuid"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -43,11 +45,12 @@ type Source struct {
 
 type SourceStats struct {
 	UrlCount             int `json:"urlCount"`
+	ArchivedUrlCount     int `json:"archivedUrlCount"`
 	ContentUrlCount      int `json:"contentUrlCount"`
 	ContentMetadataCount int `json:"contentMetadataCount"`
 }
 
-func (s *Source) CalcStats(db sqlQueryExecable) error {
+func (s *Source) CalcStats(db sqlutil.Execable) error {
 	urlCount, err := s.urlCount(db)
 	if err != nil {
 		return err
@@ -73,24 +76,33 @@ func (s *Source) CalcStats(db sqlQueryExecable) error {
 	return s.Save(db)
 }
 
-func (s *Source) urlCount(db sqlQueryable) (count int, err error) {
+func (s *Source) urlCount(db sqlutil.Queryable) (count int, err error) {
 	err = db.QueryRow(qSourceUrlCount, "%"+s.Url+"%").Scan(&count)
 	return
 }
 
-func (s *Source) contentUrlCount(db sqlQueryable) (count int, err error) {
+func (s *Source) contentUrlCount(db sqlutil.Queryable) (count int, err error) {
 	err = db.QueryRow(qSourceContentUrlCount, "%"+s.Url+"%").Scan(&count)
 	return
 }
 
-func (s *Source) contentWithMetadataCount(db sqlQueryable) (count int, err error) {
+func (s *Source) contentWithMetadataCount(db sqlutil.Queryable) (count int, err error) {
 	err = db.QueryRow(qSourceContentWithMetadataCount, "%"+s.Url+"%").Scan(&count)
 	return
 }
 
+// MatchesUrl checks to see if the url pattern of Source is contained
+// within the passed-in url string
+// TODO - make this more sophisticated, checking against the beginning of the
+// url to avoid things like accidental matches, or urls in query params matching
+// within rawurl
+func (s *Source) MatchesUrl(rawurl string) bool {
+	return strings.Contains(rawurl, s.Url)
+}
+
 // AsUrl retrieves the url that corresponds for the crawlUrl. If one doesn't exist & the url is saved,
 // a new url is created
-func (c *Source) AsUrl(db sqlQueryExecable) (*Url, error) {
+func (c *Source) AsUrl(db sqlutil.Execable) (*Url, error) {
 	// TODO - this assumes http protocol, make moar robust
 	addr, err := url.Parse(fmt.Sprintf("http://%s", c.Url))
 	if err != nil {
@@ -113,7 +125,7 @@ func (c *Source) AsUrl(db sqlQueryExecable) (*Url, error) {
 
 // TODO - this currently doesn't check the status of metadata, gonna need to do that
 // UndescribedContent returns a list of content-urls from this subprimer that need work.
-func (s *Source) UndescribedContent(db sqlQueryable, limit, offset int) ([]*Url, error) {
+func (s *Source) UndescribedContent(db sqlutil.Queryable, limit, offset int) ([]*Url, error) {
 	rows, err := db.Query(qSourceUndescribedContentUrls, "%"+s.Url+"%", limit, offset)
 	if err != nil {
 		return nil, err
@@ -136,7 +148,7 @@ func (s *Source) UndescribedContent(db sqlQueryable, limit, offset int) ([]*Url,
 
 // TODO - this currently doesn't check the status of metadata, gonna need to do that
 // DescribedContent returns a list of content-urls from this subprimer that need work.
-func (s *Source) DescribedContent(db sqlQueryable, limit, offset int) ([]*Url, error) {
+func (s *Source) DescribedContent(db sqlutil.Queryable, limit, offset int) ([]*Url, error) {
 	rows, err := db.Query(qSourceDescribedContentUrls, "%"+s.Url+"%", limit, offset)
 	if err != nil {
 		return nil, err
@@ -160,7 +172,7 @@ func (s *Source) DescribedContent(db sqlQueryable, limit, offset int) ([]*Url, e
 // func (s *Source) Stats() {
 // }
 
-func (s *Source) Read(db sqlQueryable) error {
+func (s *Source) Read(db sqlutil.Queryable) error {
 	if s.Id != "" {
 		row := db.QueryRow(qSourceById, s.Id)
 		return s.UnmarshalSQL(row)
@@ -171,7 +183,7 @@ func (s *Source) Read(db sqlQueryable) error {
 	return ErrNotFound
 }
 
-func (c *Source) Save(db sqlQueryExecable) error {
+func (c *Source) Save(db sqlutil.Execable) error {
 	prev := &Source{Url: c.Url}
 	if err := prev.Read(db); err != nil {
 		if err == ErrNotFound {
@@ -192,12 +204,12 @@ func (c *Source) Save(db sqlQueryExecable) error {
 	return nil
 }
 
-func (c *Source) Delete(db sqlQueryExecable) error {
+func (c *Source) Delete(db sqlutil.Execable) error {
 	_, err := db.Exec(qSourceDelete, c.Url)
 	return err
 }
 
-func (c *Source) UnmarshalSQL(row sqlScannable) error {
+func (c *Source) UnmarshalSQL(row sqlutil.Scannable) error {
 	var (
 		id, url, pId, title, description string
 		created, updated                 time.Time

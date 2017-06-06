@@ -3,6 +3,7 @@ package archive
 import (
 	"database/sql"
 	"encoding/json"
+	"github.com/archivers-space/sqlutil"
 	"github.com/pborman/uuid"
 	"time"
 )
@@ -39,13 +40,16 @@ type Primer struct {
 
 // TODO - finish
 type PrimerStats struct {
-	UrlCount             int `json:"urlCount"`
-	ContentUrlCount      int `json:"contentUrlCount"`
-	ContentMetadataCount int `json:"contentMetadataCount"`
+	UrlCount                int `json:"urlCount"`
+	ArchivedUrlCount        int `json:"archivedUrlCount"`
+	ContentUrlCount         int `json:"contentUrlCount"`
+	ContentMetadataCount    int `json:"contentMetadataCount"`
+	SourcesUrlCount         int `json:"sourcesUrlCount"`
+	SourcesArchivedUrlCount int `json:"sourcesArchivedUrlCount"`
 }
 
 // ReadSubPrimers reads child primers of this primer
-func (p *Primer) ReadSubPrimers(db sqlQueryable) error {
+func (p *Primer) ReadSubPrimers(db sqlutil.Queryable) error {
 	rows, err := db.Query(qPrimerSubPrimers, p.Id)
 	if err != nil {
 		return err
@@ -65,7 +69,7 @@ func (p *Primer) ReadSubPrimers(db sqlQueryable) error {
 	return nil
 }
 
-func (p *Primer) CalcStats(db sqlQueryExecable) error {
+func (p *Primer) CalcStats(db sqlutil.Execable) error {
 	p.Stats = &PrimerStats{}
 	if err := p.ReadSources(db); err != nil {
 		return err
@@ -95,7 +99,7 @@ func (p *Primer) CalcStats(db sqlQueryExecable) error {
 }
 
 // ReadSources reads child sources of this primer
-func (p *Primer) ReadSources(db sqlQueryable) error {
+func (p *Primer) ReadSources(db sqlutil.Queryable) error {
 	rows, err := db.Query(qPrimerSources, p.Id)
 	if err != nil {
 		return err
@@ -115,7 +119,7 @@ func (p *Primer) ReadSources(db sqlQueryable) error {
 	return nil
 }
 
-func (p *Primer) Read(db sqlQueryable) error {
+func (p *Primer) Read(db sqlutil.Queryable) error {
 	if p.Id != "" {
 		row := db.QueryRow(qPrimerById, p.Id)
 		return p.UnmarshalSQL(row)
@@ -123,7 +127,7 @@ func (p *Primer) Read(db sqlQueryable) error {
 	return ErrNotFound
 }
 
-func (p *Primer) Save(db sqlQueryExecable) error {
+func (p *Primer) Save(db sqlutil.Execable) error {
 	prev := &Primer{Id: p.Id}
 	if err := prev.Read(db); err != nil {
 		if err == ErrNotFound {
@@ -143,12 +147,12 @@ func (p *Primer) Save(db sqlQueryExecable) error {
 	return nil
 }
 
-func (p *Primer) Delete(db sqlQueryExecable) error {
+func (p *Primer) Delete(db sqlutil.Execable) error {
 	_, err := db.Exec(qPrimerDelete, p.Id)
 	return err
 }
 
-func (p *Primer) UnmarshalSQL(row sqlScannable) error {
+func (p *Primer) UnmarshalSQL(row sqlutil.Scannable) error {
 	var (
 		parent                                  *Primer
 		id, title, description, short, parentId string

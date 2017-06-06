@@ -3,6 +3,7 @@ package archive
 import (
 	"database/sql"
 	"fmt"
+	"github.com/archivers-space/sqlutil"
 
 	"time"
 )
@@ -21,7 +22,7 @@ type Link struct {
 	Dst *Url `json:"dst"`
 }
 
-func (l *Link) Read(db sqlQueryable) error {
+func (l *Link) Read(db sqlutil.Queryable) error {
 	var row *sql.Row
 	if l.Src != nil && l.Dst != nil {
 		row = db.QueryRow(fmt.Sprintf("select %s from links where src = $1 and dst= $2", linkCols()), l.Src.Url, l.Dst.Url)
@@ -31,20 +32,20 @@ func (l *Link) Read(db sqlQueryable) error {
 	return l.UnmarshalSQL(row)
 }
 
-func (l *Link) Insert(db sqlQueryExecable) error {
+func (l *Link) Insert(db sqlutil.Execable) error {
 	l.Created = time.Now().In(time.UTC).Round(time.Second)
 	l.Updated = l.Created
 	_, err := db.Exec(fmt.Sprintf("insert into links (%s) values ($1, $2, $3, $4)", linkCols()), l.SQLArgs()...)
 	return err
 }
 
-func (l *Link) Update(db sqlQueryExecable) error {
+func (l *Link) Update(db sqlutil.Execable) error {
 	l.Updated = time.Now().Round(time.Second)
 	_, err := db.Exec("update links set created = $1, updated = $2 where src = $3 and dst = $4", l.SQLArgs()...)
 	return err
 }
 
-func (l *Link) Delete(db sqlQueryExecable) error {
+func (l *Link) Delete(db sqlutil.Execable) error {
 	_, err := db.Exec("delete from links where src = $1 and dst = $2", l.Src.Url, l.Dst.Url)
 	return err
 }
@@ -62,7 +63,7 @@ func (l *Link) SQLArgs() []interface{} {
 	}
 }
 
-func (l *Link) UnmarshalSQL(row sqlScannable) error {
+func (l *Link) UnmarshalSQL(row sqlutil.Scannable) error {
 	var (
 		created, updated time.Time
 		src, dst         string
