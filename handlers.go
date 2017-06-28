@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/archivers-space/archive"
+	"github.com/datatogether/archive"
 	"io"
 	"net/http"
 	"net/url"
@@ -80,9 +80,9 @@ func SeedUrlHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		u := &archive.Url{Url: parsedUrl.String()}
-		if err := u.Read(appDB); err != nil {
+		if err := u.Read(store); err != nil {
 			if err == archive.ErrNotFound {
-				if err := u.Insert(appDB); err != nil {
+				if err := u.Insert(store); err != nil {
 					w.WriteHeader(http.StatusInternalServerError)
 					io.WriteString(w, fmt.Sprintf("save url error: %s", err.Error()))
 					return
@@ -281,7 +281,7 @@ func UrlsHandler(w http.ResponseWriter, r *http.Request) {
 		url := r.FormValue("url")
 		if url != "" {
 			u := &archive.Url{Url: url}
-			if err := u.Read(appDB); err != nil {
+			if err := u.Read(store); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				log.Debug(err.Error())
 				return
@@ -306,7 +306,7 @@ func UrlsHandler(w http.ResponseWriter, r *http.Request) {
 			if fetched, _ := reqParamBool("fetched", r); fetched {
 				urls, err = archive.FetchedUrls(appDB, p.Size, p.Offset())
 			} else {
-				urls, err = archive.ListUrls(appDB, p.Size, p.Offset())
+				urls, err = archive.ListUrls(store, p.Size, p.Offset())
 			}
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)

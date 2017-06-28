@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/archivers-space/archive"
+	"github.com/datatogether/archive"
 	"time"
 )
 

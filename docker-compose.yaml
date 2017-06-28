@@ -3,7 +3,7 @@ services:
   sentry:
     build: .
     volumes:
-      - ./:/go/src/github.com/archivers-space/sentry
+      - ./:/go/src/github.com/datatogether/sentry
     networks:
       - back-tier
     depends_on:

@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"database/sql"
 	"fmt"
-	"github.com/archivers-space/archive"
+	"github.com/datatogether/archive"
 	"net/http"
 	"net/url"
 	"runtime"
@@ -53,7 +53,7 @@ func startCrawling() {
 		func(ctx *fetchbot.Context, res *http.Response, err error) {
 
 			u := &archive.Url{Url: ctx.Cmd.URL().String()}
-			if err := u.Read(appDB); err != nil {
+			if err := u.Read(store); err != nil {
 				// log.Infof("[ERR] url read error: %s - (%s) - %s\n", ctx.Cmd.URL(), NormalizeURL(ctx.Cmd.URL()), err)
 				log.Infof("url read error: %s - %s", u.Url, err)
 				return
@@ -92,7 +92,7 @@ func startCrawling() {
 			enqued[u.Url] = ""
 			mu.Unlock()
 
-			if err := u.Read(appDB); err != nil {
+			if err := u.Read(store); err != nil {
 				log.Info("%s %s reading - ", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
 				return
 			}
@@ -105,7 +105,7 @@ func startCrawling() {
 			now := time.Now()
 			u.LastHead = &now
 
-			if err := u.Update(appDB); err != nil {
+			if err := u.Update(store); err != nil {
 				log.Infof("update error: %s %s - %s\n", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
 				log.Infof("%#v", u)
 			}

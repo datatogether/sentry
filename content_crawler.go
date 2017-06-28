@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/archivers-space/archive"
+	"github.com/datatogether/archive"
 	"net/http"
 	"time"
 
@@ -38,7 +38,7 @@ func startCrawlingContent() {
 		func(ctx *fetchbot.Context, res *http.Response, err error) {
 
 			u := &archive.Url{Url: ctx.Cmd.URL().String()}
-			if err := u.Read(appDB); err != nil {
+			if err := u.Read(store); err != nil {
 				// log.Printf("[ERR] url read error: %s - (%s) - %s\n", ctx.Cmd.URL(), NormalizeURL(ctx.Cmd.URL()), err)
 				log.Infof("content url read error: %s - %s\n", u.Url, err)
 				return

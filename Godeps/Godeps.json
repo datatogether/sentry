@@ -1,5 +1,5 @@
 {
-	"ImportPath": "github.com/archivers-space/sentry",
+	"ImportPath": "github.com/datatogether/sentry",
 	"GoVersion": "go1.8",
 	"GodepVersion": "v79",
 	"Deps": [
@@ -9,8 +9,8 @@
 		},
 		{
 			"ImportPath": "github.com/PuerkitoBio/goquery",
-			"Comment": "v1.1.0",
-			"Rev": "e1271ee34c6a305e38566ecd27ae374944907ee9"
+			"Comment": "v1.1.0-5-g2dc9389",
+			"Rev": "2dc93891ab3bcc1dbc2cbf9bc6376c37f6e6f289"
 		},
 		{
 			"ImportPath": "github.com/PuerkitoBio/purell",
@@ -24,22 +24,6 @@
 		{
 			"ImportPath": "github.com/andybalholm/cascadia",
 			"Rev": "349dd0209470eabd9514242c688c403c0926d266"
-		},
-		{
-			"ImportPath": "github.com/archivers-space/archive",
-			"Rev": "2d8c8d7efcf2a9fa11c51a5d3cfc7aa657ee247c"
-		},
-		{
-			"ImportPath": "github.com/archivers-space/config",
-			"Rev": "eba5c3af9362873cc43c38480ab443c9518c8c06"
-		},
-		{
-			"ImportPath": "github.com/archivers-space/ffi",
-			"Rev": "99f376acf0864754b9810704ae2b41670e17bbba"
-		},
-		{
-			"ImportPath": "github.com/archivers-space/sqlutil",
-			"Rev": "1bcf0837e1b6031578a3c7e804683ac20b3e51be"
 		},
 		{
 			"ImportPath": "github.com/aws/aws-sdk-go/aws",
@@ -167,6 +151,26 @@
 			"Rev": "1e2e6335535acb42e022f951ea4f7ab6fcf6c070"
 		},
 		{
+			"ImportPath": "github.com/datatogether/archive",
+			"Rev": "4bcbd848055be97d5091c4ccc204d88d9c0b0437"
+		},
+		{
+			"ImportPath": "github.com/datatogether/config",
+			"Rev": "29c751f56a84b6f95cb5187f6e7363f7cbcd2796"
+		},
+		{
+			"ImportPath": "github.com/datatogether/ffi",
+			"Rev": "d8bb8e6dafdcca782940d05398538b1c563be41d"
+		},
+		{
+			"ImportPath": "github.com/datatogether/sql_datastore",
+			"Rev": "a74da6a9ede6dfeb88280282ac9abaa908dfdfa2"
+		},
+		{
+			"ImportPath": "github.com/datatogether/sqlutil",
+			"Rev": "ec9f4403bc0568985249d9964ace5867b1e08019"
+		},
+		{
 			"ImportPath": "github.com/gchaincl/dotsql",
 			"Comment": "v0.1.0-10-g450d80a",
 			"Rev": "450d80a4d8f8cdd41842a1a3fe9ace90089c5e47"
@@ -177,9 +181,21 @@
 			"Rev": "ee900ca565931451fe4e4409bcbd4316331cec1c"
 		},
 		{
+			"ImportPath": "github.com/ipfs/go-datastore",
+			"Rev": "e7613971227c1afc1799b1ec9d3947c592f547eb"
+		},
+		{
+			"ImportPath": "github.com/ipfs/go-datastore/query",
+			"Rev": "e7613971227c1afc1799b1ec9d3947c592f547eb"
+		},
+		{
 			"ImportPath": "github.com/jbenet/go-base58",
 			"Comment": "1.0.0",
 			"Rev": "6237cf65f3a6f7111cd8a42be3590df99a66bc7d"
+		},
+		{
+			"ImportPath": "github.com/jbenet/goprocess",
+			"Rev": "b497e2f366b8624394fb2e89c10ab607bebdde0b"
 		},
 		{
 			"ImportPath": "github.com/jmespath/go-jmespath",
@@ -210,6 +226,11 @@
 			"ImportPath": "github.com/pborman/uuid",
 			"Comment": "v1.0-21-g1b00554",
 			"Rev": "1b00554d822231195d1babd97ff4a781231955c9"
+		},
+		{
+			"ImportPath": "github.com/satori/go.uuid",
+			"Comment": "v1.1.0-8-g5bf94b6",
+			"Rev": "5bf94b69c6b68ee1b541973bb8e1144db23a194b"
 		},
 		{
 			"ImportPath": "github.com/sirupsen/logrus",

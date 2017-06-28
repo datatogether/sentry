@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"github.com/archivers-space/archive"
-	conf "github.com/archivers-space/config"
+	"github.com/datatogether/archive"
+	conf "github.com/datatogether/config"
 	"os"
 	"path/filepath"
 	"time"
@@ -147,7 +147,7 @@ func requireConfigStrings(values map[string]string) error {
 }
 
 func packagePath(path string) string {
-	return filepath.Join(os.Getenv("GOPATH"), "src/github.com/archivers-space/sentry", path)
+	return filepath.Join(os.Getenv("GOPATH"), "src/github.com/datatogether/sentry", path)
 }
 
 // checks for .[mode].env file to read configuration from if the file exists

@@ -11,4 +11,4 @@ Sentry holds a separate stream of scraping for any url that looks like a dataset
 
 In parallel to building this tool, we have engaged in efforts to map the landscape of similar projects:
 
-:eyes: See: [**Comparison of web archiving software**](https://github.com/archivers-space/research/tree/master/web_archiving)
+:eyes: See: [**Comparison of web archiving software**](https://github.com/datatogether/research/tree/master/web_archiving)

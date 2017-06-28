@@ -3,7 +3,9 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"github.com/archivers-space/sqlutil"
+	"github.com/datatogether/archive"
+	"github.com/datatogether/sql_datastore"
+	"github.com/datatogether/sqlutil"
 	_ "github.com/lib/pq"
 	"github.com/sirupsen/logrus"
 	"net/http"
@@ -27,6 +29,8 @@ var (
 
 	// application database connection
 	appDB = &sql.DB{}
+	// hoist default store
+	store = sql_datastore.DefaultStore
 )
 
 func init() {
@@ -49,6 +53,11 @@ func main() {
 	}
 
 	sqlutil.ConnectToDb("postgres", cfg.PostgresDbUrl, appDB)
+	sql_datastore.SetDB(appDB)
+	sql_datastore.Register(
+		&archive.Url{},
+		&archive.Link{},
+	)
 
 	// create any tables if they don't exist
 	sc, err := sqlutil.LoadSchemaCommands(packagePath("sql/schema.sql"))
