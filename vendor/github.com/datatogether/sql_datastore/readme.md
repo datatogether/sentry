@@ -14,6 +14,18 @@ requiring implementers to provide a standard set of queries and parameters to
 glue everything together. Whenever the datastore interface is not expressive
 enough, one can always fall back to standard SQL work.
 
+sql_datastore reconciles the key-value orientation of the datastore interface
+with the tables/relational orientation of SQL databases through the concept of a
+"Model". Model is a bit of an unfortunate name, as it implies this package is an
+ORM, which isn't a design goal.
+
+Annnnnnnnyway, the important patterns of this approach are:
+
+    1. The Model interface defines how to get stuff into and out of SQL
+    2. All Models that will be interacted with must be "Registered" to the store.
+       Registered Models map to a datastore.Key Type.
+    3. All Get/Put/Delete/Has/Query to sql_datastore must map to a single Model
+
 This implementation leads to a great deal of required boilerplate code to
 implement. In the future this package could be expanded to become syntax-aware,
 accepting a table name & schema definition for registered models. From here the
@@ -33,6 +45,7 @@ Package Level Datastore. Be sure to call SetDB before using!
 ```go
 func Register(models ...Model) error
 ```
+Register a number of models to the DefaultStore
 
 #### func  SetDB
 
@@ -48,11 +61,12 @@ type Cmd int
 ```
 
 Cmd represents a set of standardized SQL queries these abstractions define a
-common set of commands that a model can provide to sql_datastore for execution
+common set of commands that a model can provide to sql_datastore for execution.
 
 ```go
 const (
-	// Unknown as default, errored state
+	// Unknown as default, errored state. CmdUnknown should never
+	// be intentionally passed to... anything.
 	CmdUnknown Cmd = iota
 	// starting with DDL statements:
 	// CREATE TABLE query
@@ -89,7 +103,7 @@ type Datastore struct {
 }
 ```
 
-Datastore
+Datastore implements the ipfs datastore interface for SQL databases
 
 #### func  NewDatastore
 
@@ -152,6 +166,38 @@ func (ds *Datastore) Register(models ...Model) error
 Register one or more models that will be used by this datastore. Must be called
 before a model can be manipulated by the store
 
+#### type FilterKeyTypeEq
+
+```go
+type FilterKeyTypeEq string
+```
+
+FilterTypeEq filters for a specific key Type (which should match a registerd
+model on the sql_datastore.Datastore) FilterTypeEq is a string that specifies
+the key type we're after
+
+#### func (FilterKeyTypeEq) Filter
+
+```go
+func (f FilterKeyTypeEq) Filter(e query.Entry) bool
+```
+Filter satisfies the query.Filter interface TODO - make this work properly for
+the sake of other datastores
+
+#### func (FilterKeyTypeEq) Key
+
+```go
+func (f FilterKeyTypeEq) Key() datastore.Key
+```
+Key return s FilterKeyTypeEq formatted as a datastore.Key
+
+#### func (FilterKeyTypeEq) String
+
+```go
+func (f FilterKeyTypeEq) String() string
+```
+Satisfy the Stringer interface
+
 #### type Model
 
 ```go
@@ -159,15 +205,27 @@ type Model interface {
 	// DatastoreType must return the "type" of object, which is a consistent
 	// name for the object being stored. DatastoreType works in conjunction
 	// with GetId to construct the key for storage.
-	// Since SQL doesn't support the "pathing" aspect of keys, any path
-	// values are ignored
 	DatastoreType() string
-	// GetId should return the cannonical ID for the object.
+	// GetId should return the standalone cannonical ID for the object.
 	GetId() string
 
+	// Key is a methoda that traditionally combines DatastoreType() and GetId()
+	// to form a key that can be provided to Get & Has commands
+	// eg:
+	// func (m) Key() datastore.Key {
+	// 	return datastore.NewKey(fmt.Sprintf("%s:%s", m.DatastoreType(), m.GetId()))
+	// }
+	// in examples of "submodels" of another model it makes sense to leverage the
+	// POSIX structure of keys. for example:
+	// func (m) Key() datastore.Key {
+	// 	return datastore.NewKey(fmt.Sprintf("%s:%s/%s", m.DatastoreType(), m.ParentId(), m.GetId()))
+	// }
+	Key() datastore.Key
+
 	// NewSQLModel must allocate & return a new instance of the
-	// model with id set such that GetId returns the passed-in id string
-	NewSQLModel(id string) Model
+	// model with id set such that GetId returns the passed-in Key
+	// NewSQLModel will be passed keys for creation of new blank models
+	NewSQLModel(key datastore.Key) Model
 
 	// SQLQuery gives the datastore the query to execute for a given command type
 	// As an example, if CmdSelectOne is passed in, something like
@@ -187,4 +245,52 @@ type Model interface {
 
 Model is the interface that must be implemented to work with sql_datastore.
 There are some fairly heavy constraints here. For a working example checkout:
-https://github.com/datatogether/archive and have a look at primer.go
+https://github.com/archivers-space/archive and have a look at primer.go
+
+#### type OrderBy
+
+```go
+type OrderBy string
+```
+
+Order a query by a field
+
+#### func (OrderBy) Sort
+
+```go
+func (o OrderBy) Sort([]query.Entry)
+```
+satisfy datastore.Order interface, this is a no-op b/c sql sorting will happen
+at query-time TODO - In the future this should be generalized to facilitate
+supplying sql_datastore.OrderBy orders to other datastores, providing parity
+
+#### func (OrderBy) String
+
+```go
+func (o OrderBy) String() string
+```
+String value, used to inject the field name istself as a SQL query param
+
+#### type OrderByDesc
+
+```go
+type OrderByDesc string
+```
+
+Order a query by a field, descending
+
+#### func (OrderByDesc) Sort
+
+```go
+func (o OrderByDesc) Sort([]query.Entry)
+```
+satisfy datastore.Order interface, this is a no-op b/c sql sorting will happen
+at query-time TODO - In the future this should be generalized to facilitate
+supplying sql_datastore.OrderBy orders to other datastores, providing parity
+
+#### func (OrderByDesc) String
+
+```go
+func (o OrderByDesc) String() string
+```
+String value, used to inject the field name istself as a SQL query param

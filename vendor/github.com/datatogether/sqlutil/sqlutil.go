@@ -59,7 +59,35 @@ func SetupConnection(driverName, connString string) (db *sql.DB, err error) {
 	return
 }
 
-// EnsureTables checks for table existence, creating them from the schema file if not.
+// EnsureSeedData runs "EnsureTables", and then injects seed data for any newly-created tables
+func EnsureSeedData(db *sql.DB, schemaFilepath, dataFilepath string, tables ...string) (created []string, err error) {
+	// test query to check for database schema existence
+	sc, err := LoadSchemaCommands(schemaFilepath)
+	if err != nil {
+		return nil, err
+	}
+
+	created, err = sc.Create(db, tables...)
+	if err != nil {
+		return created, err
+	}
+
+	if len(created) > 0 {
+		dc, err := LoadDataCommands(dataFilepath)
+		if err != nil {
+			return created, err
+		}
+
+		if err := dc.Reset(db, created...); err != nil {
+			return created, err
+		}
+	}
+
+	return created, nil
+}
+
+// EnsureTables checks for table existence, creating them from the schema file if not,
+// returning a slice of table names that were created
 func EnsureTables(db *sql.DB, schemaFilepath string, tables ...string) ([]string, error) {
 	sc, err := LoadSchemaCommands(schemaFilepath)
 	if err != nil {
@@ -67,19 +95,3 @@ func EnsureTables(db *sql.DB, schemaFilepath string, tables ...string) ([]string
 	}
 	return sc.Create(db, tables...)
 }
-
-// drops test data tables & re-inserts base data from sql/test_data.sql, based on
-// passed in table names
-// func InsertTestData(db *sql.DB, tables ...string) error {
-// 	schema, err := dotsql.LoadFromFile()
-// 	if err != nil {
-// 		return err
-// 	}
-// 	for _, t := range tables {
-// 		if _, err := schema.Exec(db, fmt.Sprintf("insert-%s", t)); err != nil {
-// 			err = fmt.Errorf("error insert-%s: %s", t, err.Error())
-// 			return err
-// 		}
-// 	}
-// 	return nil
-// }

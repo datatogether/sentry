@@ -2,11 +2,12 @@ package sql_datastore
 
 // Cmd represents a set of standardized SQL queries these abstractions
 // define a common set of commands that a model can provide to sql_datastore
-// for execution
+// for execution.
 type Cmd int
 
 const (
-	// Unknown as default, errored state
+	// Unknown as default, errored state. CmdUnknown should never
+	// be intentionally passed to... anything.
 	CmdUnknown Cmd = iota
 	// starting with DDL statements:
 	// CREATE TABLE query

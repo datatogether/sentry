@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/datatogether/archive"
+	"github.com/datatogether/core"
 	"io"
 	"net/http"
 	"net/url"
@@ -66,23 +66,23 @@ func SeedUrlHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if err := archive.ValidArchivingUrl(appDB, parsedUrl.String()); err != nil {
+		if err := core.ValidArchivingUrl(appDB, parsedUrl.String()); err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			io.WriteString(w, err.Error())
 			return
 		}
 
-		_, err = appDB.Exec("insert into archive_requests (created,url,user_id) values ($1, $2, $3)", time.Now().Round(time.Second).In(time.UTC), parsedUrl.String(), "")
+		_, err = appDB.Exec("insert into core_requests (created,url,user_id) values ($1, $2, $3)", time.Now().Round(time.Second).In(time.UTC), parsedUrl.String(), "")
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			io.WriteString(w, fmt.Sprintf("save url error: %s", err.Error()))
 			return
 		}
 
-		u := &archive.Url{Url: parsedUrl.String()}
+		u := &core.Url{Url: parsedUrl.String()}
 		if err := u.Read(store); err != nil {
-			if err == archive.ErrNotFound {
-				if err := u.Insert(store); err != nil {
+			if err == core.ErrNotFound {
+				if err := u.Save(store); err != nil {
 					w.WriteHeader(http.StatusInternalServerError)
 					io.WriteString(w, fmt.Sprintf("save url error: %s", err.Error()))
 					return
@@ -139,7 +139,7 @@ func SeedUrlHandler(w http.ResponseWriter, r *http.Request) {
 // 		return
 // 	}
 
-// 	u := &archive.Url{Url: reqUrl.String()}
+// 	u := &core.Url{Url: reqUrl.String()}
 // 	if err := u.Read(appDB); err != nil {
 // 		w.WriteHeader(http.StatusBadRequest)
 // 		io.WriteString(w, fmt.Sprintf("read url '%s' err: %s", reqUrl.String(), err.Error()))
@@ -280,7 +280,7 @@ func UrlsHandler(w http.ResponseWriter, r *http.Request) {
 		// if we have a "url" param, read that single url
 		url := r.FormValue("url")
 		if url != "" {
-			u := &archive.Url{Url: url}
+			u := &core.Url{Url: url}
 			if err := u.Read(store); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				log.Debug(err.Error())
@@ -300,13 +300,13 @@ func UrlsHandler(w http.ResponseWriter, r *http.Request) {
 		} else {
 			p := PageFromRequest(r)
 			var (
-				urls []*archive.Url
+				urls []*core.Url
 				err  error
 			)
 			if fetched, _ := reqParamBool("fetched", r); fetched {
-				urls, err = archive.FetchedUrls(appDB, p.Size, p.Offset())
+				urls, err = core.FetchedUrls(appDB, p.Size, p.Offset())
 			} else {
-				urls, err = archive.ListUrls(store, p.Size, p.Offset())
+				urls, err = core.ListUrls(store, p.Size, p.Offset())
 			}
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -331,7 +331,7 @@ func UrlsHandler(w http.ResponseWriter, r *http.Request) {
 
 func CrawlingSourcesHandler(w http.ResponseWriter, r *http.Request) {
 	// p := PageFromRequest(r)
-	// urls, err := archive.CrawlingSources(appDB, p.Size, p.Offset())
+	// urls, err := core.CrawlingSources(appDB, p.Size, p.Offset())
 	// if err != nil {
 	// 	w.WriteHeader(500)
 	// 	w.Write([]byte(err.Error()))
