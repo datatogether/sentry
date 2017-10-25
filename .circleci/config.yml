@@ -35,12 +35,15 @@ jobs:
           command: go-wrapper download && go-wrapper install && go get -v github.com/jstemmer/go-junit-report
       - run: 
           name: Run tests
-          command: go test -v -race ./... | tee /tmp/test-reports/datatogether/original.txt ; test ${PIPESTATUS[0]} -eq 0
+          command: go test -v -race -coverprofile=coverage.txt -covermode=atomic | tee /tmp/test-reports/datatogether/original.txt ; test ${PIPESTATUS[0]} -eq 0
       - run: 
           name: Convert test output to junit-style xml
           command: cat /tmp/test-reports/datatogether/original.txt | go-junit-report > /tmp/test-reports/datatogether/junit.xml
       - store_test_results:
           path: /tmp/test-reports/datatogether/junit.xml
+      - run:
+          name: Publish coverage info to codecov.io
+          command: bash <(curl -s https://codecov.io/bash)
       - setup_remote_docker
       - run:
           name: Install Docker client

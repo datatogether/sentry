@@ -104,6 +104,7 @@ func NewServerRoutes() *http.ServeMux {
 	m := http.NewServeMux()
 	m.HandleFunc("/.well-known/acme-challenge/", CertbotHandler)
 	m.Handle("/", middleware(HealthCheckHandler))
+	m.Handle("/healthcheck", middleware(HealthCheckHandler))
 
 	// Seed a url to the crawler
 	// r.POST("/seed", middleware(SeedUrlHandler))

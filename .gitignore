@@ -1,6 +1,6 @@
 .DS_Store
 gin-bin
 sentry
-coverage.out
+coverage.txt
 config.*.json
 *.env
