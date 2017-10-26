@@ -21,6 +21,9 @@ func TestServerRoutes(t *testing.T) {
 	}{
 		{"GET", "/", false, nil, 200},
 		{"GET", "/healthcheck", false, nil, 200},
+		{"PUT", "/healthcheck", false, nil, 200},
+		{"POST", "/healthcheck", false, nil, 200},
+		{"DELETE", "/healthcheck", false, nil, 200},
 	}
 
 	client := &http.Client{}
