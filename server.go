@@ -3,7 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"github.com/datatogether/archive"
+	"github.com/datatogether/core"
 	"github.com/datatogether/sql_datastore"
 	"github.com/datatogether/sqlutil"
 	_ "github.com/lib/pq"
@@ -55,8 +55,8 @@ func main() {
 	sqlutil.ConnectToDb("postgres", cfg.PostgresDbUrl, appDB)
 	sql_datastore.SetDB(appDB)
 	sql_datastore.Register(
-		&archive.Url{},
-		&archive.Link{},
+		&core.Url{},
+		&core.Link{},
 	)
 
 	// create any tables if they don't exist
@@ -104,6 +104,7 @@ func NewServerRoutes() *http.ServeMux {
 	m := http.NewServeMux()
 	m.HandleFunc("/.well-known/acme-challenge/", CertbotHandler)
 	m.Handle("/", middleware(HealthCheckHandler))
+	m.Handle("/healthcheck", middleware(HealthCheckHandler))
 
 	// Seed a url to the crawler
 	// r.POST("/seed", middleware(SeedUrlHandler))

@@ -2,6 +2,7 @@ package sql_datastore
 
 import (
 	"github.com/datatogether/sqlutil"
+	datastore "github.com/ipfs/go-datastore"
 )
 
 // Model is the interface that must be implemented to work
@@ -12,23 +13,27 @@ type Model interface {
 	// DatastoreType must return the "type" of object, which is a consistent
 	// name for the object being stored. DatastoreType works in conjunction
 	// with GetId to construct the key for storage.
-	// Since SQL doesn't support the "pathing" aspect of keys, any path
-	// values are ignored
 	DatastoreType() string
-	// GetId should return the cannonical ID for the object.
+	// GetId should return the standalone cannonical ID for the object.
 	GetId() string
 
-	// While not explicitly required by this package, most implementations
-	// will want to have a "Key" method that combines DatastoreType() and GetId()
+	// Key is a methoda that traditionally combines DatastoreType() and GetId()
 	// to form a key that can be provided to Get & Has commands
 	// eg:
 	// func (m) Key() datastore.Key {
 	// 	return datastore.NewKey(fmt.Sprintf("%s:%s", m.DatastoreType(), m.GetId()))
 	// }
+	// in examples of "submodels" of another model it makes sense to leverage the
+	// POSIX structure of keys. for example:
+	// func (m) Key() datastore.Key {
+	// 	return datastore.NewKey(fmt.Sprintf("%s:%s/%s", m.DatastoreType(), m.ParentId(), m.GetId()))
+	// }
+	Key() datastore.Key
 
 	// NewSQLModel must allocate & return a new instance of the
-	// model with id set such that GetId returns the passed-in id string
-	NewSQLModel(id string) Model
+	// model with id set such that GetId returns the passed-in Key
+	// NewSQLModel will be passed keys for creation of new blank models
+	NewSQLModel(key datastore.Key) Model
 
 	// SQLQuery gives the datastore the query to execute for a given command type
 	// As an example, if CmdSelectOne is passed in, something like

@@ -17,7 +17,6 @@ services:
       - POSTGRES_DB_URL=postgres://postgres@postgres/postgres?sslmode=disable
       - CRAWL_DELAY_SECONDS=5
       - CRAWL=true
-
   postgres:
     image: postgres:9.6-alpine
     networks:
