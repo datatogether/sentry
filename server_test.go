@@ -19,11 +19,89 @@ func TestServerRoutes(t *testing.T) {
 		body             []byte
 		resStatus        int
 	}{
-		{"GET", "/", false, nil, 200},
-		{"GET", "/healthcheck", false, nil, 200},
-		{"PUT", "/healthcheck", false, nil, 200},
-		{"POST", "/healthcheck", false, nil, 200},
-		{"DELETE", "/healthcheck", false, nil, 200},
+		//TODO: switch from [A] to [B]: these pass currently but POST, PUT, DELETE should return 404 (http.StatusNotFound ) instead of 200 (http.StatusOK)
+		// [A]
+		{"GET", "/", false, nil, http.StatusOK},
+		{"PUT", "/", false, nil, http.StatusOK},
+		{"POST", "/", false, nil, http.StatusOK},
+		{"DELETE", "/", false, nil, http.StatusOK},
+		// [B]
+		// {"GET", "/", false, nil, http.StatusOK},
+		// {"PUT", "/", false, nil, http.StatusNotFound},
+		// {"POST", "/", false, nil, http.StatusNotFound},
+		// {"DELETE", "/", false, nil, http.StatusNotFound},
+
+		//TODO: switch from [A] to [B]: POST, PUT, DELETE should return 404 (http.StatusNotFound ) instead of 200 (http.StatusOK)
+		// [A]
+		{"GET", "/healthcheck", false, nil, http.StatusOK},
+		{"PUT", "/healthcheck", false, nil, http.StatusOK},
+		{"POST", "/healthcheck", false, nil, http.StatusOK},
+		{"DELETE", "/healthcheck", false, nil, http.StatusOK},
+		// [B]
+		// {"GET", "/healthcheck", false, nil, http.StatusOK},
+		// {"PUT", "/healthcheck", false, nil, http.StatusNotFound},
+		// {"POST", "/healthcheck", false, nil, http.StatusNotFound},
+		// {"DELETE", "/healthcheck", false, nil, http.StatusNotFound},
+
+		//TODO: these pass currently but GET should return 404 200 (http.StatusOK) instead of 500 (http.StatusInternalServerError)
+		// [A]
+		{"GET", "/urls", false, nil, http.StatusInternalServerError},
+		{"PUT", "/urls", false, nil, http.StatusNotFound},
+		{"POST", "/urls", false, nil, http.StatusNotFound},
+		{"DELETE", "/urls", false, nil, http.StatusNotFound},
+		// [B]
+		// {"GET", "/urls", false, nil, http.StatusInternalServerError},
+		// {"PUT", "/urls", false, nil, http.StatusNotFound},
+		// {"POST", "/urls", false, nil, http.StatusNotFound},
+		// {"DELETE", "/urls", false, nil, http.StatusNotFound},
+
+		//TODO: these pass currently but POST, PUT, DELETE should return 404 (http.StatusNotFound ) instead of 200 (http.StatusOK)
+		// [A]
+		{"GET", "/sources", false, nil, http.StatusOK},
+		{"PUT", "/sources", false, nil, http.StatusOK},
+		{"POST", "/sources", false, nil, http.StatusOK},
+		{"DELETE", "/sources", false, nil, http.StatusOK},
+		// [B]
+		// {"GET", "/sources", false, nil, http.StatusOK},
+		// {"PUT", "/sources", false, nil, http.StatusNotFound},
+		// {"POST", "/sources", false, nil, http.StatusNotFound},
+		// {"DELETE", "/sources", false, nil, http.StatusNotFound},
+
+		//TODO: these pass currently but POST, PUT, DELETE should return 404 (http.StatusNotFound ) instead of 200 (http.StatusOK)
+		// [A]
+		{"GET", "/mem", false, nil, http.StatusOK},
+		{"PUT", "/mem", false, nil, http.StatusOK},
+		{"POST", "/mem", false, nil, http.StatusOK},
+		{"DELETE", "/mem", false, nil, http.StatusOK},
+		// [B]
+		// {"GET", "/mem", false, nil, http.StatusOK},
+		// {"PUT", "/mem", false, nil, http.StatusNotFound},
+		// {"POST", "/mem", false, nil, http.StatusNotFound},
+		// {"DELETE", "/mem", false, nil, http.StatusNotFound},
+
+		//TODO: these pass currently but POST should return 200 (http.StatusOK) instead of 400 (http.StatusBadRequest)
+		// [A]
+		{"GET", "/que", false, nil, http.StatusOK},
+		{"PUT", "/que", false, nil, http.StatusNotFound},
+		{"POST", "/que", false, nil, http.StatusBadRequest},
+		{"DELETE", "/que", false, nil, http.StatusNotFound},
+		// [B]
+		// {"GET", "/que", false, nil, http.StatusOK},
+		// {"PUT", "/que", false, nil, http.StatusNotFound},
+		// {"POST", "/que", false, nil, http.StatusOK},
+		// {"DELETE", "/que", false, nil, http.StatusNotFound},
+
+		//TODO: these pass currently but POST, PUT, DELETE should return 404 (http.StatusNotFound ) instead of 200 (http.StatusOK)
+		// [A]
+		{"GET", "/shutodwn", false, nil, http.StatusOK},
+		{"PUT", "/shutodwn", false, nil, http.StatusOK},
+		{"POST", "/shutodwn", false, nil, http.StatusOK},
+		{"DELETE", "/shutodwn", false, nil, http.StatusOK},
+		// [B]
+		// {"GET", "/shutodwn", false, nil, http.StatusOK},
+		// {"PUT", "/shutodwn", false, nil, http.StatusNotFound},
+		// {"POST", "/shutodwn", false, nil, http.StatusNotFound},
+		// {"DELETE", "/shutodwn", false, nil, http.StatusNotFound},
 	}
 
 	client := &http.Client{}
