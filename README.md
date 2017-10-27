@@ -42,7 +42,12 @@ like to submit changes, please see our
 We use GitHub issues for [tracking bugs and feature requests](https://github.com/datatogether/sentry/issues)
 and Pull Requests (PRs) for [submitting changes](https://github.com/datatogether/sentry/pulls)
 
-## Installation
+## Usage
+Though it has mostly been used in the context of the [Data Together webapp](https://github.com/datatogether/webapp), **sentry** is a stand-alone web crawler and can be used on its own, though it currently requires a somewhat elaborate infrastructure and (for instance) it can not simply be fed a job over the command line. 
+
+At present, sentry reads crawling instructions directly from a Postgres database (see [the schema file](./sql/schemalsql) for details of the database structure), and places crawled resources in an S3 bucket. For every domain to be crawled, create a record in the `sources` table with `crawl` set to true. Sentry will crawl that domain repeatedly. Resources will be hashed and stored on S3, where they can be retrieved by [content](https://github.com/datatogether/content) or any other service capable of reverse-engineering the identifying hash. **Other storage backends are planned** (see [roadmap](#roadmap), below), and if you are interested in helping to develop them please contact us!
+
+## Installation and Configuration
 ### Docker installation
 ```
 docker compose up
@@ -71,9 +76,11 @@ docker compose up
 - on production
 - on development (how do you work with them in development env?)
 
-## Development
+## Roadmap
 
-Coming soon!
+Two major changes to **sentry** will make it much more generally usable:
+- we plan to **shift the storage backend from S3 to IPFS**. Once this is accomplished, any local or remote IPFS node can be used as a storage node.
+- we are considering **additional mechanisms for adidng crawls to sentry's queue**. This should make sentry distinctly more flexible. 
 
 ## Related Projects
 
