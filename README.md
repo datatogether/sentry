@@ -42,6 +42,35 @@ like to submit changes, please see our
 We use GitHub issues for [tracking bugs and feature requests](https://github.com/datatogether/sentry/issues)
 and Pull Requests (PRs) for [submitting changes](https://github.com/datatogether/sentry/pulls)
 
+## Installation
+### Docker installation
+```
+docker compose up
+```
+### Manual installation
+1. Install [Go language](https://golang.org/doc/install)
+2. Download and build repository
+    ```sh
+    export GOPATH=$(go env GOPATH)
+    mkdir -pv $GOPATH
+    cd $GOPATH
+
+    git clone https://github.com/archivers-space/sentry
+    cd sentry
+    go install
+    ```
+3. Configure Postgres server and then set connection URL
+   ```
+   export POSTGRES_DB_URL=postgres://[USERNAME_HERE]:[PASSWORD_HERE]@localhost:[PORT]/[DB_NAME]
+   ```
+3. Run sentry
+    ```sh
+    $GOPATH/bin/sentry
+    ```
+4. Configure S3 buckets [TODO]
+- on production
+- on development (how do you work with them in development env?)
+
 ## Development
 
 Coming soon!
