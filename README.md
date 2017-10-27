@@ -4,7 +4,7 @@
 [![Slack](https://img.shields.io/badge/slack-Archivers-b44e88.svg?style=flat-square)](https://archivers-slack.herokuapp.com/)
 [![License](https://img.shields.io/github/license/datatogether/sentry.svg?style=flat-square)](./LICENSE)
 [![Codecov](https://img.shields.io/codecov/c/github/datatogether/sentry.svg?style=flat-square)](https://codecov.io/gh/datatogether/sentry)
-![CI](https://img.shields.io/circleci/project/github/datatogether/sentry.svg?style=flat-square)
+[![CI](https://img.shields.io/circleci/project/github/datatogether/sentry.svg?style=flat-square)](https://circleci.com/gh/datatogether/sentry)
 
 Sentry is a parallelized web crawler written in [Go](https://golang.org) that
 writes urls, links, & response headers to a Postgres database, then stores the
