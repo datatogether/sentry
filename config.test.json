@@ -1,8 +1,0 @@
-{
-	"POSTGRES_DB_URL" : "postgresql://b5@localhost:5432/sentry_test?sslmode=disable",
-	"PUBLIC_KEY" : "test_public_key",
-
-	"AWS_REGION" : "us-east-1",
-	"AWS_S3_BUCKET_NAME" : "tests.qri.io",
-	"AWS_S3_BUCKET_PATH" : "sentry"
-}

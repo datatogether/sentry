@@ -1,0 +1,29 @@
+version: '2'
+services:
+  sentry:
+    build: .
+    volumes:
+      - ./:/go/src/github.com/datatogether/sentry
+    networks:
+      - back-tier
+    depends_on:
+      - postgres
+    ports:
+      - 8080:8080
+    environment:
+      - PORT=8080
+      - GOLANG_ENV=production
+      - ALLOWED_ORIGINS=http://localhost:3000
+      - POSTGRES_DB_URL=postgres://postgres@postgres/postgres?sslmode=disable
+      - CRAWL_DELAY_SECONDS=5
+      - CRAWL=true
+  postgres:
+    image: postgres:9.6-alpine
+    networks:
+      - back-tier
+
+volumes:
+  db-data:
+
+networks:
+  back-tier:

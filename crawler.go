@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"database/sql"
 	"fmt"
-	"github.com/archivers-space/archive"
+	"github.com/datatogether/core"
 	"net/http"
 	"net/url"
 	"runtime"
@@ -52,8 +52,8 @@ func startCrawling() {
 	mux.Response().Method("GET").Handler(fetchbot.HandlerFunc(
 		func(ctx *fetchbot.Context, res *http.Response, err error) {
 
-			u := &archive.Url{Url: ctx.Cmd.URL().String()}
-			if err := u.Read(appDB); err != nil {
+			u := &core.Url{Url: ctx.Cmd.URL().String()}
+			if err := u.Read(store); err != nil {
 				// log.Infof("[ERR] url read error: %s - (%s) - %s\n", ctx.Cmd.URL(), NormalizeURL(ctx.Cmd.URL()), err)
 				log.Infof("url read error: %s - %s", u.Url, err)
 				return
@@ -63,13 +63,7 @@ func startCrawling() {
 			delete(enqued, u.Url)
 			mu.Unlock()
 
-			done := func(err error) {
-				if err != nil {
-					log.Info(err.Error())
-				}
-			}
-
-			links, err := u.HandleGetResponse(appDB, res, done)
+			_, links, err := u.HandleGetResponse(store, res)
 			if err != nil {
 				log.Debugf("error handling get response: %s - %s", ctx.Cmd.URL().String(), err.Error())
 				return
@@ -86,13 +80,13 @@ func startCrawling() {
 		func(ctx *fetchbot.Context, res *http.Response, err error) {
 			addr := ctx.Cmd.URL()
 
-			u := &archive.Url{Url: addr.String()}
+			u := &core.Url{Url: addr.String()}
 
 			mu.Lock()
 			enqued[u.Url] = ""
 			mu.Unlock()
 
-			if err := u.Read(appDB); err != nil {
+			if err := u.Read(store); err != nil {
 				log.Info("%s %s reading - ", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
 				return
 			}
@@ -105,7 +99,7 @@ func startCrawling() {
 			now := time.Now()
 			u.LastHead = &now
 
-			if err := u.Update(appDB); err != nil {
+			if err := u.Save(store); err != nil {
 				log.Infof("update error: %s %s - %s\n", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
 				log.Infof("%#v", u)
 			}
@@ -127,7 +121,7 @@ func startCrawling() {
 	log.Info("starting A crawler (main)")
 	f = fetchbot.New(h)
 	f.DisablePoliteness = !cfg.Polite
-	f.CrawlDelay = cfg.CrawlDelaySeconds * time.Second
+	f.CrawlDelay = time.Duration(cfg.CrawlDelaySeconds) * time.Second
 
 	// Start processing
 	q := f.Start()
@@ -164,7 +158,7 @@ func startCrawling() {
 // seedCrawlingSources grabs a list of sources that are currently set to crawl
 // and adds them to the que
 func seedCrawlingSources(db *sql.DB, q *fetchbot.Queue) error {
-	urls, err := archive.CrawlingSources(db, 200, 0)
+	urls, err := core.CrawlingSources(db, 200, 0)
 	if err != nil {
 		return err
 	}
@@ -218,7 +212,7 @@ func seedUrls(db *sql.DB, q *fetchbot.Queue, count int) error {
 	mu.Lock()
 	defer mu.Unlock()
 
-	if ufd, err := archive.UnfetchedUrls(db, count, 0); err == nil && len(ufd) >= 0 {
+	if ufd, err := core.UnfetchedUrls(db, count, 0); err == nil && len(ufd) >= 0 {
 		i := 0
 		for _, unfetched := range ufd {
 			u, err := unfetched.ParsedUrl()
@@ -241,7 +235,7 @@ func seedUrls(db *sql.DB, q *fetchbot.Queue, count int) error {
 
 // enqueDomainGet adds a url GET request to the que if the url is valid
 // for queing & not already enqued
-func enqueueDomainGet(u *archive.Url, ctx *fetchbot.Context) error {
+func enqueueDomainGet(u *core.Url, ctx *fetchbot.Context) error {
 	// log.Infof("url: %s, should head: %t, isFetchable: %t", u.Url, u.ShouldEnqueueHead(), u.isFetchable())
 	if enqued[u.Url] == "" && u.ShouldEnqueueGet() {
 		_, err := ctx.Q.SendStringGet(u.Url)
@@ -258,7 +252,7 @@ func enqueueDomainGet(u *archive.Url, ctx *fetchbot.Context) error {
 }
 
 // enqueDstLinks works through all linked urls
-func enqueueDstLinks(u *archive.Url, links []*archive.Link, q *fetchbot.Queue) error {
+func enqueueDstLinks(u *core.Url, links []*core.Link, q *fetchbot.Queue) error {
 	if links == nil || len(links) == 0 {
 		return nil
 	}

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/archivers-space/archive"
+	"github.com/datatogether/core"
 	"net/http"
 	"time"
 
@@ -37,8 +37,8 @@ func startCrawlingSeeds() {
 	mux.Response().Method("GET").Handler(fetchbot.HandlerFunc(
 		func(ctx *fetchbot.Context, res *http.Response, err error) {
 
-			u := &archive.Url{Url: ctx.Cmd.URL().String()}
-			if err := u.Read(appDB); err != nil {
+			u := &core.Url{Url: ctx.Cmd.URL().String()}
+			if err := u.Read(store); err != nil {
 				// log.Printf("[ERR] url read error: %s - (%s) - %s\n", ctx.Cmd.URL(), NormalizeURL(ctx.Cmd.URL()), err)
 				log.Infof("content url read error: %s - %s\n", u.Url, err)
 				return
@@ -48,13 +48,7 @@ func startCrawlingSeeds() {
 			delete(enqued, u.Url)
 			mu.Unlock()
 
-			done := func(err error) {
-				if err != nil {
-					log.Info(err.Error())
-				}
-			}
-
-			links, err := u.HandleGetResponse(appDB, res, done)
+			_, links, err := u.HandleGetResponse(store, res)
 			if err != nil {
 				log.Info(err.Error())
 				return
@@ -71,7 +65,7 @@ func startCrawlingSeeds() {
 
 	seedFetcher = fetchbot.New(h)
 	seedFetcher.DisablePoliteness = !cfg.Polite
-	seedFetcher.CrawlDelay = cfg.CrawlDelaySeconds * time.Second
+	seedFetcher.CrawlDelay = time.Duration(cfg.CrawlDelaySeconds) * time.Second
 
 	// Start processing
 	log.Info("starting C crawler (seeds)")

@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"github.com/archivers-space/archive"
-	conf "github.com/archivers-space/config"
+	conf "github.com/datatogether/config"
+	"github.com/datatogether/core"
 	"os"
 	"path/filepath"
 	"time"
@@ -45,14 +45,15 @@ type config struct {
 	TLS bool
 
 	// How long before a url is considered stale, in hours.
-	StaleDurationHours time.Duration
+	StaleDurationHours int
+
 	// crawl urls?
 	Crawl bool
 	// Weather or not the crawler respects robots.txt
 	Polite bool
 	// how long to wait between requests. one day this'll be dynamically
 	// modifiable
-	CrawlDelaySeconds time.Duration
+	CrawlDelaySeconds int
 	// Content Types to Store
 	StoreContentTypes []string
 
@@ -94,7 +95,8 @@ type config struct {
 
 // StaleDuration turns cfg.StaleDurationHours into a time.Duration
 func (cfg *config) StaleDuration() time.Duration {
-	return cfg.StaleDurationHours * time.Hour
+	return 72 * time.Hour
+	// return cfg.StaleDurationHours * time.Hour
 }
 
 // initConfig pulls configuration from config.json
@@ -123,12 +125,12 @@ func initConfig(mode string) (cfg *config, err error) {
 		"PUBLIC_KEY":      cfg.PublicKey,
 	})
 
-	// transfer settings to archive library
-	archive.AwsRegion = cfg.AwsRegion
-	archive.AwsAccessKeyId = cfg.AwsAccessKeyId
-	archive.AwsS3BucketName = cfg.AwsS3BucketName
-	archive.AwsS3BucketPath = cfg.AwsS3BucketPath
-	archive.AwsSecretAccessKey = cfg.AwsSecretAccessKey
+	// transfer settings to core library
+	core.AwsRegion = cfg.AwsRegion
+	core.AwsAccessKeyId = cfg.AwsAccessKeyId
+	core.AwsS3BucketName = cfg.AwsS3BucketName
+	core.AwsS3BucketPath = cfg.AwsS3BucketPath
+	core.AwsSecretAccessKey = cfg.AwsSecretAccessKey
 
 	return
 }
@@ -145,7 +147,7 @@ func requireConfigStrings(values map[string]string) error {
 }
 
 func packagePath(path string) string {
-	return filepath.Join(os.Getenv("GOPATH"), "src/github.com/archivers-space/sentry", path)
+	return filepath.Join(os.Getenv("GOPATH"), "src/github.com/datatogether/sentry", path)
 }
 
 // checks for .[mode].env file to read configuration from if the file exists

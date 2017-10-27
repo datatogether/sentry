@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/archivers-space/archive"
+	"github.com/datatogether/core"
 	"time"
 )
 
@@ -31,7 +31,7 @@ func StartCron(d time.Duration) (stop func()) {
 // TODO - this currently spins up at least 1Gig of ram to do it's work, need to refactor
 func CalcBasePrimerStats() error {
 	log.Info("[INFO] starting base primer stat calculation")
-	ps, err := archive.BasePrimers(appDB, 100, 0)
+	ps, err := core.BasePrimers(appDB, 100, 0)
 	if err != nil {
 		return err
 	}
