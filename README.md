@@ -64,8 +64,12 @@ helping to develop them please contact us!
 
 ### Docker installation
 
-```
-docker compose up
+To get started developing using [Docker](https://store.docker.com/search?type=edition&offering=community) and [Docker Compose](https://docs.docker.com/compose/install/), run:
+
+```shell
+$ git clone git@github.com:datatogether/webapp.git
+$ cd webapp
+$ docker-compose up
 ```
 
 ### Manual installation
