@@ -1,15 +1,88 @@
 package main
 
 import (
+	"os"
+	"fmt"
 	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"github.com/datatogether/core"
+	"github.com/datatogether/sql_datastore"
+	"github.com/datatogether/sqlutil"
+	"github.com/gchaincl/dotsql"
 )
 
-func init() {
-	cfg = &config{}
+func setUp() {
+	var err error
+	cfg, err = initConfig( "test" )
+	if err != nil {
+		// panic if the server is missing a vital configuration detail
+		panic( fmt.Errorf( "server configuration error: %s", err.Error() ) )
+	}
+
+	sqlutil.ConnectToDb( "postgres", cfg.PostgresDbUrl, appDB )
+	sql_datastore.SetDB( appDB )
+	sql_datastore.Register(
+		&core.Url{},
+		&core.Link{},
+	)
+
+	// create any tables if they don't exist
+	sc, err := sqlutil.LoadSchemaCommands( packagePath( "sql/schema.sql" ) )
+	if err != nil {
+		fmt.Errorf( "error loading schema file: %s", err )
+	} else {
+		created, err := sc.Create( appDB, 
+						"primers",
+						"sources",
+						"urls",
+						"links",
+						"metadata",
+						"snapshots",
+						"collections",
+						"archive_requests",
+						"uncrawlables",
+						"data_repos" )
+		if err != nil {
+			fmt.Errorf( "error creating missing tables: %s", err )
+		} else if len(created) > 0 {
+			fmt.Errorf( "created tables:", created )
+		}
+	}
+
+	data, err := sqlutil.LoadDataCommands( packagePath( "sql/test_data.sql" ) )
+	if err != nil {
+		fmt.Errorf( "error loading commands file: %s", err )
+	} else {
+		err := data.Reset( appDB, "primers", "sources", "urls" )
+		if err != nil {
+			fmt.Errorf( "error creating missing tables: %s", err )
+		}
+	}
+	
+}
+
+func cleanUp() {
+	d, err := dotsql.LoadFromFile( packagePath( "sql/test_data.sql" ) )
+	if err != nil {
+		fmt.Errorf( "error loading schema file: %s", err )
+	} else {
+		tables := [...]string{ "primers", "sources", "urls" };
+		for _, t := range tables {
+			if _, err := d.Exec( appDB, fmt.Sprintf( "delete-%s", t ) ); err != nil {
+				fmt.Errorf( "error executing 'delete-%s': %s", t, err )
+			}
+		}
+	}
+}
+
+func TestMain( m *testing.M ) { 
+    setUp()
+    ret := m.Run()
+    cleanUp()
+    os.Exit( ret )
 }
 
 func TestServerRoutes(t *testing.T) {
@@ -45,7 +118,7 @@ func TestServerRoutes(t *testing.T) {
 
 		//TODO: these pass currently but GET should return 404 200 (http.StatusOK) instead of 500 (http.StatusInternalServerError)
 		// [A]
-		{"GET", "/urls", false, nil, http.StatusInternalServerError},
+		{"GET", "/urls", false, nil, http.StatusOK},
 		{"PUT", "/urls", false, nil, http.StatusNotFound},
 		{"POST", "/urls", false, nil, http.StatusNotFound},
 		{"DELETE", "/urls", false, nil, http.StatusNotFound},
