@@ -25,6 +25,7 @@ separate thread for archiving.
 ## License & Copyright
 
 Copyright (C) 2017 Data Together  
+
 This program is free software: you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free Software
 Foundation, version 3.0.
@@ -42,14 +43,39 @@ like to submit changes, please see our
 We use GitHub issues for [tracking bugs and feature requests](https://github.com/datatogether/sentry/issues)
 and Pull Requests (PRs) for [submitting changes](https://github.com/datatogether/sentry/pulls)
 
-## Installation
+## Usage
+Though it has mostly been used with the [Data Together **webapp**](https://github.com/datatogether/webapp), 
+**sentry** is a stand-alone web crawler and can be used on its own. It 
+currently requires a somewhat elaborate infrastructure and, for instance, it 
+can not simply be fed a job over the command line. 
+
+At present, sentry reads crawling instructions directly from a Postgres 
+database (see [the schema file](./sql/schemalsql) for details of the 
+database structure), and places crawled resources in an S3 bucket. For 
+every domain to be crawled, create a record in the `sources` table with 
+`crawl` set to true. Sentry will crawl that domain repeatedly. Resources 
+will be hashed and stored on S3, where they can be retrieved by 
+[**content**](https://github.com/datatogether/content) or any other service 
+capable of reverse-engineering the identifying hash. **Other storage backends 
+are planned** (see [roadmap](#roadmap), below), and if you are interested in 
+helping to develop them please contact us!
+
+## Installation and Configuration
+
 ### Docker installation
+
+To get started developing using [Docker](https://store.docker.com/search?type=edition&offering=community) and [Docker Compose](https://docs.docker.com/compose/install/), run:
+
+```shell
+$ git clone git@github.com:datatogether/webapp.git
+$ cd webapp
+$ docker-compose up
 ```
-docker compose up
-```
+
 ### Manual installation
+
 1. Install [Go language](https://golang.org/doc/install)
-2. Download and build repository
+1. Download and build repository
     ```sh
     export GOPATH=$(go env GOPATH)
     mkdir -pv $GOPATH
@@ -59,21 +85,25 @@ docker compose up
     cd sentry
     go install
     ```
-3. Configure Postgres server and then set connection URL
+1. Configure Postgres server and then set connection URL
    ```
    export POSTGRES_DB_URL=postgres://[USERNAME_HERE]:[PASSWORD_HERE]@localhost:[PORT]/[DB_NAME]
    ```
-3. Run sentry
+1. Run sentry
     ```sh
     $GOPATH/bin/sentry
     ```
-4. Configure S3 buckets [TODO]
-- on production
-- on development (how do you work with them in development env?)
+1. Configure S3 buckets [TODO]
+    - on production
+    - on development (how do you work with them in development env?)
 
-## Development
+## Roadmap
 
-Coming soon!
+Two major changes to **sentry** will make it much more generally usable:
+- we plan to **shift the storage backend from S3 to IPFS**. Once this is 
+accomplished, any local or remote IPFS node can be used as a storage node.
+- we are considering **additional mechanisms for adidng crawls to sentry's 
+queue**. This should make sentry distinctly more flexible. 
 
 ## Related Projects
 
