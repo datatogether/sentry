@@ -50,7 +50,7 @@ currently requires a somewhat elaborate infrastructure and, for instance, it
 can not simply be fed a job over the command line. 
 
 At present, sentry reads crawling instructions directly from a Postgres 
-database (see [the schema file](./sql/schemalsql) for details of the 
+database (see [the schema file](./sql/schema.sql) for details of the 
 database structure), and places crawled resources in an S3 bucket. For 
 every domain to be crawled, create a record in the `sources` table with 
 `crawl` set to true. Sentry will crawl that domain repeatedly. Resources 
