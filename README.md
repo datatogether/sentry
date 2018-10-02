@@ -81,8 +81,8 @@ $ docker-compose up
     mkdir -pv $GOPATH
     cd $GOPATH
 
-    git clone https://github.com/archivers-space/sentry
-    cd sentry
+    go get github.com/datatogether/sentry
+    cd github.com/datatogether/sentry
     go install
     ```
 1. Configure Postgres server and then set connection URL
